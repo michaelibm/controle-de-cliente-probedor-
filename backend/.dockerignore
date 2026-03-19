@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.*
+*.log
+coverage
+test
+*.spec.ts
+.git
+.gitignore
+README.md
+COMO-RODAR.md
+prisma/migrations/.gitkeep

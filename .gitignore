@@ -1,0 +1,34 @@
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+*/node_modules/
+
+# Build
+dist/
+*/dist/
+build/
+*/build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker volumes locais
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Prisma
+backend/prisma/migrations/*.sql.bak

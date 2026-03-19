@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+:root {
+  --base:    #0C0E14;
+  --s1:      #13161E;
+  --s2:      #1A1E2A;
+  --s3:      #222838;
+  --sr:      #2C3349;
+  --t1: #EEF2FF;
+  --t2: #8B9CBD;
+  --t3: #4A566E;
+  --bd:  rgba(255,255,255,0.07);
+  --bde: rgba(255,255,255,0.13);
+  --accent:      #3B82F6;
+  --accent-dim:  rgba(59,130,246,0.13);
+  --accent-glow: rgba(59,130,246,0.30);
+  --success:     #22C55E;
+  --success-dim: rgba(34,197,94,0.12);
+  --warn:        #F59E0B;
+  --warn-dim:    rgba(245,158,11,0.12);
+  --danger:      #EF4444;
+  --danger-dim:  rgba(239,68,68,0.12);
+  --info:        #06B6D4;
+  --info-dim:    rgba(6,182,212,0.12);
+  --nav-h: 64px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--base);
+  color: var(--t1);
+  height: 100%;
+  overscroll-behavior: none;
+}
+#root { height: 100%; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 4px; }
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--s2) inset !important;
+  -webkit-text-fill-color: var(--t1) !important;
+}
+
+.mono { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.8); }
+}
+.pulse-active { animation: pulse-dot 2s ease-in-out infinite; }
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.slide-up { animation: slide-up 0.30s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fade-in 0.22s ease-out; }

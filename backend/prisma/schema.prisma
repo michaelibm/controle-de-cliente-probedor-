@@ -1,0 +1,480 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// USUÁRIOS E AUTENTICAÇÃO
+// ─────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  role          UserRole  @default(ATTENDANT)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  refreshToken  String?   @map("refresh_token")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  receivablePayments ReceivablePayment[]
+  payablePayments    PayablePayment[]
+  auditLogs          AuditLog[]
+  customers          Customer[]          @relation("CustomerSeller")
+  installationsAsTechnician Installation[] @relation("InstallationTechnician")
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  FINANCIAL
+  ATTENDANT
+  SUPPORT
+  READONLY
+  INSTALLER
+}
+
+// ─────────────────────────────────────────
+// CLIENTES
+// ─────────────────────────────────────────
+
+model Customer {
+  id             String         @id @default(uuid())
+  code           Int            @unique @default(autoincrement())
+  type           CustomerType   @default(INDIVIDUAL)
+  name           String
+  document       String         @unique
+  documentType   DocumentType   @map("document_type")
+  rg             String?
+  birthDate      DateTime?      @map("birth_date") @db.Date
+  email          String?
+  phone          String
+  phoneSecondary String?        @map("phone_secondary")
+  whatsapp       String?
+  status         CustomerStatus @default(ACTIVE)
+  origin         String?
+  notes          String?
+  sellerId       String?        @map("seller_id")
+  seller         User?          @relation("CustomerSeller", fields: [sellerId], references: [id])
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  deletedAt      DateTime?      @map("deleted_at")
+
+  address     CustomerAddress?
+  contracts   Contract[]
+  receivables Receivable[]
+  installations Installation[]
+
+  @@index([document])
+  @@index([name])
+  @@index([status])
+  @@map("customers")
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum DocumentType {
+  CPF
+  CNPJ
+}
+
+enum CustomerStatus {
+  ACTIVE
+  BLOCKED
+  SUSPENDED
+  CANCELLED
+  ACTIVATING
+}
+
+model CustomerAddress {
+  id           String   @id @default(uuid())
+  customerId   String   @unique @map("customer_id")
+  customer     Customer @relation(fields: [customerId], references: [id])
+  zipCode      String   @map("zip_code")
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String   @db.Char(2)
+  reference    String?
+  latitude     Decimal? @db.Decimal(10, 8)
+  longitude    Decimal? @db.Decimal(11, 8)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([city])
+  @@index([neighborhood])
+  @@map("customer_addresses")
+}
+
+// ─────────────────────────────────────────
+// PLANOS
+// ─────────────────────────────────────────
+
+model Plan {
+  id             String       @id @default(uuid())
+  name           String
+  description    String?
+  downloadSpeed  Int          @map("download_speed")
+  uploadSpeed    Int          @map("upload_speed")
+  monthlyPrice   Decimal      @map("monthly_price") @db.Decimal(10, 2)
+  installFee     Decimal      @default(0) @map("install_fee") @db.Decimal(10, 2)
+  fidelityMonths Int          @default(0) @map("fidelity_months")
+  category       PlanCategory @default(RESIDENTIAL)
+  isPromo        Boolean      @default(false) @map("is_promo")
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  deletedAt      DateTime?    @map("deleted_at")
+
+  contracts Contract[]
+  installations Installation[]
+
+  @@map("plans")
+}
+
+enum PlanCategory {
+  RESIDENTIAL
+  BUSINESS
+  ENTERPRISE
+}
+
+// ─────────────────────────────────────────
+// CONTRATOS
+// ─────────────────────────────────────────
+
+model Contract {
+  id               String         @id @default(uuid())
+  number           String         @unique
+  customerId       String         @map("customer_id")
+  customer         Customer       @relation(fields: [customerId], references: [id])
+  planId           String         @map("plan_id")
+  plan             Plan           @relation(fields: [planId], references: [id])
+  status           ContractStatus @default(ACTIVE)
+  monthlyValue     Decimal        @map("monthly_value") @db.Decimal(10, 2)
+  dueDay           Int            @map("due_day")
+  billingCycle     Int            @default(1) @map("billing_cycle")
+  discount         Decimal        @default(0) @db.Decimal(10, 2)
+  finePercent      Decimal        @default(2) @map("fine_percent") @db.Decimal(5, 2)
+  interestPercent  Decimal        @default(1) @map("interest_percent") @db.Decimal(5, 2)
+  fidelityMonths   Int            @default(0) @map("fidelity_months")
+  startDate        DateTime       @map("start_date") @db.Date
+  activationDate   DateTime?      @map("activation_date") @db.Date
+  fidelityEndDate  DateTime?      @map("fidelity_end_date") @db.Date
+  cancellationDate DateTime?      @map("cancellation_date") @db.Date
+  notes            String?
+  externalId       String?        @map("external_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  receivables   Receivable[]
+  statusHistory ContractStatusHistory[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  PENDING_ACTIVATION
+}
+
+model ContractStatusHistory {
+  id         String         @id @default(uuid())
+  contractId String         @map("contract_id")
+  contract   Contract       @relation(fields: [contractId], references: [id])
+  fromStatus ContractStatus @map("from_status")
+  toStatus   ContractStatus @map("to_status")
+  reason     String?
+  changedBy  String         @map("changed_by")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@map("contract_status_history")
+}
+
+// ─────────────────────────────────────────
+// CONTAS A RECEBER
+// ─────────────────────────────────────────
+
+model Receivable {
+  id                   String           @id @default(uuid())
+  code                 String           @unique
+  customerId           String           @map("customer_id")
+  customer             Customer         @relation(fields: [customerId], references: [id])
+  contractId           String?          @map("contract_id")
+  contract             Contract?        @relation(fields: [contractId], references: [id])
+  description          String
+  type                 ReceivableType   @default(MONTHLY)
+  status               ReceivableStatus @default(PENDING)
+  principalAmount      Decimal          @map("principal_amount") @db.Decimal(10, 2)
+  discount             Decimal          @default(0) @db.Decimal(10, 2)
+  fineAmount           Decimal          @default(0) @map("fine_amount") @db.Decimal(10, 2)
+  interestAmount       Decimal          @default(0) @map("interest_amount") @db.Decimal(10, 2)
+  finalAmount          Decimal          @map("final_amount") @db.Decimal(10, 2)
+  paidAmount           Decimal          @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  remainingAmount      Decimal          @map("remaining_amount") @db.Decimal(10, 2)
+  dueDate              DateTime         @map("due_date") @db.Date
+  issueDate            DateTime         @default(now()) @map("issue_date") @db.Date
+  paidDate             DateTime?        @map("paid_date") @db.Date
+  paymentMethod        PaymentMethod?   @map("payment_method")
+  notes                String?
+  isExempt             Boolean          @default(false) @map("is_exempt")
+  originalReceivableId String?          @map("original_receivable_id")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+  deletedAt            DateTime?        @map("deleted_at")
+
+  payments           ReceivablePayment[]
+  originalReceivable Receivable?        @relation("Renegotiation", fields: [originalReceivableId], references: [id])
+  renegotiations     Receivable[]       @relation("Renegotiation")
+
+  @@index([customerId])
+  @@index([contractId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("receivables")
+}
+
+enum ReceivableType {
+  MONTHLY
+  INSTALL
+  EQUIPMENT
+  EXTRA
+  RENEGOTIATED
+}
+
+enum ReceivableStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  RENEGOTIATED
+  PARTIAL
+  EXEMPT
+}
+
+enum PaymentMethod {
+  BOLETO
+  PIX
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  TRANSFER
+  DIRECT_DEBIT
+}
+
+model ReceivablePayment {
+  id               String        @id @default(uuid())
+  receivableId     String        @map("receivable_id")
+  receivable       Receivable    @relation(fields: [receivableId], references: [id])
+  amount           Decimal       @db.Decimal(10, 2)
+  paymentMethod    PaymentMethod @map("payment_method")
+  paidAt           DateTime      @map("paid_at")
+  receiptUrl       String?       @map("receipt_url")
+  notes            String?
+  registeredBy     String        @map("registered_by")
+  registeredByUser User          @relation(fields: [registeredBy], references: [id])
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  @@map("receivable_payments")
+}
+
+// ─────────────────────────────────────────
+// CONTAS A PAGAR
+// ─────────────────────────────────────────
+
+model PayableCategory {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  color     String?
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  payables Payable[]
+
+  @@map("payable_categories")
+}
+
+model Payable {
+  id            String          @id @default(uuid())
+  code          String          @unique
+  supplier      String
+  categoryId    String          @map("category_id")
+  category      PayableCategory @relation(fields: [categoryId], references: [id])
+  description   String
+  amount        Decimal         @db.Decimal(10, 2)
+  dueDate       DateTime        @map("due_date") @db.Date
+  paidDate      DateTime?       @map("paid_date") @db.Date
+  status        PayableStatus   @default(PENDING)
+  costCenter    String?         @map("cost_center")
+  paymentMethod PaymentMethod?  @map("payment_method")
+  isRecurring   Boolean         @default(false) @map("is_recurring")
+  recurrenceDay Int?            @map("recurrence_day")
+  notes         String?
+  receiptUrl    String?         @map("receipt_url")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  deletedAt     DateTime?       @map("deleted_at")
+
+  payments PayablePayment[]
+
+  @@index([status])
+  @@index([dueDate])
+  @@map("payables")
+}
+
+enum PayableStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model PayablePayment {
+  id               String   @id @default(uuid())
+  payableId        String   @map("payable_id")
+  payable          Payable  @relation(fields: [payableId], references: [id])
+  amount           Decimal  @db.Decimal(10, 2)
+  paidAt           DateTime @map("paid_at")
+  registeredBy     String   @map("registered_by")
+  registeredByUser User     @relation(fields: [registeredBy], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("payable_payments")
+}
+
+// ─────────────────────────────────────────
+// NOTIFICAÇÕES E AUDITORIA
+// ─────────────────────────────────────────
+
+model Notification {
+  id         String               @id @default(uuid())
+  type       NotificationType
+  priority   NotificationPriority @default(MEDIUM)
+  title      String
+  message    String
+  entityType String?              @map("entity_type")
+  entityId   String?              @map("entity_id")
+  isRead     Boolean              @default(false) @map("is_read")
+  userId     String?              @map("user_id")
+  expiresAt  DateTime?            @map("expires_at")
+  createdAt  DateTime             @default(now()) @map("created_at")
+
+  @@index([isRead])
+  @@index([userId])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  DUE_TODAY
+  DUE_TOMORROW
+  DUE_IN_3_DAYS
+  DUE_IN_7_DAYS
+  OVERDUE
+  HIGH_DEFAULT_RATE
+  CONTRACT_FIDELITY_ENDING
+  PAYABLE_DUE
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldData    Json?    @map("old_data")
+  newData    Json?    @map("new_data")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  label     String
+  group     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// ─────────────────────────────────────────
+// CAIXA — RETIRADAS
+// ─────────────────────────────────────────
+
+model CashWithdrawal {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  amount      Decimal  @db.Decimal(10, 2)
+  description String
+  withdrawnBy String   @map("withdrawn_by")
+  withdrawnAt DateTime @map("withdrawn_at") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("cash_withdrawals")
+}
+
+// ─────────────────────────────────────────
+// INSTALAÇÕES
+// ─────────────────────────────────────────
+
+enum InstallationStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model Installation {
+  id              String             @id @default(uuid())
+  code            String             @unique
+  customerId      String             @map("customer_id")
+  customer        Customer           @relation(fields: [customerId], references: [id])
+  planId          String?            @map("plan_id")
+  plan            Plan?              @relation(fields: [planId], references: [id])
+  technicianId    String?            @map("technician_id")
+  technician      User?              @relation("InstallationTechnician", fields: [technicianId], references: [id])
+  scheduledDate   DateTime           @map("scheduled_date") @db.Date
+  scheduledTime   String             @map("scheduled_time")
+  status          InstallationStatus @default(PENDING)
+  addressSnapshot Json?              @map("address_snapshot")
+  notes           String?
+  completedAt     DateTime?          @map("completed_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("installations")
+}

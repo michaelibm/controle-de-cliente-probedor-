@@ -1,0 +1,405 @@
+import {
+  Injectable, NotFoundException, BadRequestException,
+} from '@nestjs/common';
+import {
+  ReceivableStatus, PaymentMethod, ReceivableType, Prisma,
+} from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { WebhookService } from '../webhook/webhook.service';
+import {
+  CreateReceivableDto, PayReceivableDto, RenegotiateReceivableDto, FilterReceivableDto,
+} from './dto/create-receivable.dto';
+import { paginate } from '../../common/dto/pagination.dto';
+import { startOfDay, endOfDay, addDays, addMonths, format } from 'date-fns';
+
+@Injectable()
+export class ReceivablesService {
+  constructor(private prisma: PrismaService, private webhook: WebhookService) {}
+
+  private async generateCode(): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await this.prisma.receivable.count({
+      where: { code: { startsWith: `FAT-${year}` } },
+    });
+    return `FAT-${year}-${String(count + 1).padStart(6, '0')}`;
+  }
+
+  async create(dto: CreateReceivableDto) {
+    const code = await this.generateCode();
+    const finalAmount = dto.principalAmount - (dto.discount ?? 0);
+
+    return this.prisma.receivable.create({
+      data: {
+        code,
+        customerId: dto.customerId,
+        contractId: dto.contractId,
+        description: dto.description,
+        type: dto.type ?? ReceivableType.MONTHLY,
+        status: ReceivableStatus.PENDING,
+        principalAmount: dto.principalAmount,
+        discount: dto.discount ?? 0,
+        finalAmount,
+        remainingAmount: finalAmount,
+        dueDate: new Date(dto.dueDate),
+        notes: dto.notes,
+      },
+      include: {
+        customer: { select: { id: true, name: true } },
+        contract: { select: { id: true, number: true } },
+      },
+    });
+  }
+
+  async findAll(filters: FilterReceivableDto & { page?: number; limit?: number; orderBy?: string; order?: string } = {}) {
+    const { page = 1, limit = 25 } = filters;
+    const skip = (page - 1) * limit;
+    const today = startOfDay(new Date());
+
+    const statusList = filters.status
+      ? (filters.status.split(',') as ReceivableStatus[])
+      : undefined;
+
+    const where: Prisma.ReceivableWhereInput = {
+      deletedAt: null,
+      ...(statusList && { status: { in: statusList } }),
+      ...(filters.customerId && { customerId: filters.customerId }),
+      ...(filters.contractId && { contractId: filters.contractId }),
+      ...(filters.paymentMethod && { paymentMethod: filters.paymentMethod as PaymentMethod }),
+      ...(filters.planId && { contract: { planId: filters.planId } }),
+      ...(filters.search && {
+        OR: [
+          { customer: { name: { contains: filters.search, mode: 'insensitive' } } },
+          { customer: { document: { contains: filters.search.replace(/\D/g, '') } } },
+          { code: { contains: filters.search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(filters.city && {
+        customer: { address: { city: { contains: filters.city, mode: 'insensitive' } } },
+      }),
+      ...(filters.dueDateStart || filters.dueDateEnd ? {
+        dueDate: {
+          ...(filters.dueDateStart && { gte: new Date(filters.dueDateStart) }),
+          ...(filters.dueDateEnd && { lte: new Date(filters.dueDateEnd) }),
+        },
+      } : {}),
+      ...(filters.paidDateStart || filters.paidDateEnd ? {
+        paidDate: {
+          ...(filters.paidDateStart && { gte: new Date(filters.paidDateStart) }),
+          ...(filters.paidDateEnd && { lte: new Date(filters.paidDateEnd) }),
+        },
+      } : {}),
+      ...(filters.minAmount !== undefined || filters.maxAmount !== undefined ? {
+        finalAmount: {
+          ...(filters.minAmount !== undefined && { gte: filters.minAmount }),
+          ...(filters.maxAmount !== undefined && { lte: filters.maxAmount }),
+        },
+      } : {}),
+      ...(filters.dueToday && {
+        dueDate: { gte: today, lt: addDays(today, 1) },
+        status: ReceivableStatus.PENDING,
+      }),
+      ...(filters.dueThisWeek && {
+        dueDate: { gte: today, lt: addDays(today, 7) },
+        status: ReceivableStatus.PENDING,
+      }),
+      ...(filters.paidToday && {
+        paidDate: { gte: today, lt: addDays(today, 1) },
+        status: ReceivableStatus.PAID,
+      }),
+    };
+
+    const [items, total, meta] = await Promise.all([
+      this.prisma.receivable.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          customer: { select: { id: true, name: true, document: true } },
+          contract: { select: { id: true, number: true, plan: { select: { name: true } } } },
+        },
+        orderBy: filters.orderBy === 'amount'
+          ? { finalAmount: (filters.order as any) || 'desc' }
+          : { dueDate: (filters.order as any) || 'asc' },
+      }),
+      this.prisma.receivable.count({ where }),
+      this.getListMeta(),
+    ]);
+
+    const result = paginate(items, total, page, limit);
+    return { ...result, meta };
+  }
+
+  private async getListMeta() {
+    const today = startOfDay(new Date());
+    const [dueToday, overdue, paidToday, totalPending] = await Promise.all([
+      this.prisma.receivable.count({
+        where: { deletedAt: null, status: 'PENDING', dueDate: { gte: today, lt: addDays(today, 1) } },
+      }),
+      this.prisma.receivable.aggregate({
+        _sum: { remainingAmount: true },
+        _count: true,
+        where: { deletedAt: null, status: 'OVERDUE' },
+      }),
+      this.prisma.receivable.aggregate({
+        _sum: { paidAmount: true },
+        where: { deletedAt: null, status: 'PAID', paidDate: { gte: today } },
+      }),
+      this.prisma.receivable.aggregate({
+        _sum: { remainingAmount: true },
+        where: { deletedAt: null, status: { in: ['PENDING', 'OVERDUE'] } },
+      }),
+    ]);
+    return {
+      dueToday,
+      overdueCount: overdue._count,
+      overdueAmount: Number(overdue._sum.remainingAmount ?? 0),
+      paidToday: Number(paidToday._sum.paidAmount ?? 0),
+      totalPending: Number(totalPending._sum.remainingAmount ?? 0),
+    };
+  }
+
+  async findOne(id: string) {
+    const receivable = await this.prisma.receivable.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        customer: { include: { address: true } },
+        contract: { include: { plan: true } },
+        payments: {
+          include: { registeredByUser: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+        originalReceivable: { select: { id: true, code: true, dueDate: true, principalAmount: true } },
+        renegotiations: { select: { id: true, code: true, dueDate: true, finalAmount: true, status: true } },
+      },
+    });
+    if (!receivable) throw new NotFoundException('Cobrança não encontrada');
+    return receivable;
+  }
+
+  async pay(id: string, dto: PayReceivableDto, userId: string) {
+    const receivable = await this.findOne(id);
+
+    const nonPayableStatuses: string[] = [ReceivableStatus.CANCELLED, ReceivableStatus.RENEGOTIATED, ReceivableStatus.EXEMPT];
+    if (nonPayableStatuses.includes(receivable.status)) {
+      throw new BadRequestException(`Cobrança com status "${receivable.status}" não pode ser baixada`);
+    }
+
+    const isPartial = dto.amount < Number(receivable.remainingAmount);
+    const newPaidAmount = Number(receivable.paidAmount) + dto.amount;
+    const newRemainingAmount = Number(receivable.finalAmount) - newPaidAmount;
+    const newStatus = newRemainingAmount <= 0
+      ? ReceivableStatus.PAID
+      : ReceivableStatus.PARTIAL;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.receivablePayment.create({
+        data: {
+          receivableId: id,
+          amount: dto.amount,
+          paymentMethod: dto.paymentMethod,
+          paidAt: new Date(dto.paidAt),
+          notes: dto.notes,
+          receiptUrl: dto.receiptUrl,
+          registeredBy: userId,
+        },
+      });
+
+      const updated = await tx.receivable.update({
+        where: { id },
+        data: {
+          paidAmount: newPaidAmount,
+          remainingAmount: Math.max(0, newRemainingAmount),
+          status: newStatus,
+          paidDate: newStatus === ReceivableStatus.PAID ? new Date(dto.paidAt) : null,
+          paymentMethod: newStatus === ReceivableStatus.PAID ? dto.paymentMethod : receivable.paymentMethod,
+        },
+        include: { customer: { select: { id: true, name: true, phone: true, whatsapp: true } } },
+      });
+
+      this.webhook.send('payment.received', {
+        receivableId: id,
+        code: receivable.code,
+        customerId: receivable.customerId,
+        customerName: updated.customer?.name,
+        customerPhone: updated.customer?.whatsapp || updated.customer?.phone,
+        amount: dto.amount,
+        paymentMethod: dto.paymentMethod,
+        dueDate: receivable.dueDate,
+        paidDate: dto.paidAt,
+        status: newStatus,
+        description: receivable.description,
+      });
+
+      return updated;
+    });
+  }
+
+  async cancel(id: string, reason?: string) {
+    const receivable = await this.findOne(id);
+    if (receivable.status === ReceivableStatus.PAID) {
+      throw new BadRequestException('Cobrança paga não pode ser cancelada');
+    }
+    return this.prisma.receivable.update({
+      where: { id },
+      data: { status: ReceivableStatus.CANCELLED, notes: reason ?? receivable.notes },
+    });
+  }
+
+  async renegotiate(id: string, dto: RenegotiateReceivableDto) {
+    const original = await this.findOne(id);
+    if (original.status === ReceivableStatus.PAID) {
+      throw new BadRequestException('Cobrança paga não pode ser renegociada');
+    }
+
+    const code = await this.generateCode();
+    const newAmount = dto.newAmount - (dto.discount ?? 0);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.receivable.update({
+        where: { id },
+        data: { status: ReceivableStatus.RENEGOTIATED, notes: dto.reason },
+      });
+
+      return tx.receivable.create({
+        data: {
+          code,
+          customerId: original.customerId,
+          contractId: original.contractId,
+          description: `Renegociação - ${original.description}`,
+          type: ReceivableType.RENEGOTIATED,
+          status: ReceivableStatus.PENDING,
+          principalAmount: dto.newAmount,
+          discount: dto.discount ?? 0,
+          finalAmount: newAmount,
+          remainingAmount: newAmount,
+          dueDate: new Date(dto.newDueDate),
+          originalReceivableId: id,
+          notes: dto.reason,
+        },
+      });
+    });
+  }
+
+  async updateDueDate(id: string, newDueDate: string) {
+    await this.findOne(id);
+    return this.prisma.receivable.update({
+      where: { id },
+      data: { dueDate: new Date(newDueDate) },
+    });
+  }
+
+  async markOverdue() {
+    const today = startOfDay(new Date());
+    const result = await this.prisma.receivable.updateMany({
+      where: {
+        status: ReceivableStatus.PENDING,
+        dueDate: { lt: today },
+        deletedAt: null,
+      },
+      data: { status: ReceivableStatus.OVERDUE },
+    });
+    return result.count;
+  }
+
+  async generateMonthly() {
+    const activeContracts = await this.prisma.contract.findMany({
+      where: { status: 'ACTIVE' },
+    });
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const monthStr = format(now, 'MM/yyyy');
+    let created = 0;
+
+    for (const contract of activeContracts) {
+      const dueDate = new Date(year, month, contract.dueDay);
+      const exists = await this.prisma.receivable.findFirst({
+        where: {
+          contractId: contract.id,
+          description: { contains: monthStr },
+          deletedAt: null,
+        },
+      });
+      if (exists) continue;
+
+      const code = await this.generateCode();
+      const discount = Number(contract.discount);
+      const principal = Number(contract.monthlyValue);
+      const final = principal - discount;
+
+      await this.prisma.receivable.create({
+        data: {
+          code,
+          customerId: contract.customerId,
+          contractId: contract.id,
+          description: `Mensalidade ${monthStr}`,
+          type: ReceivableType.MONTHLY,
+          status: ReceivableStatus.PENDING,
+          principalAmount: principal,
+          discount,
+          finalAmount: final,
+          remainingAmount: final,
+          dueDate,
+          issueDate: new Date(),
+        },
+      });
+      created++;
+    }
+    return { created };
+  }
+
+  async generateAnnual(contractId: string) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+    if (!contract) throw new NotFoundException('Contrato não encontrado');
+
+    const now = new Date();
+    let created = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < 12; i++) {
+      const targetDate = addMonths(now, i);
+      const year = targetDate.getFullYear();
+      const month = targetDate.getMonth();
+      const monthStr = format(targetDate, 'MM/yyyy');
+
+      // Due date: same month, day = contract.dueDay
+      const dueDate = new Date(year, month, contract.dueDay);
+
+      const exists = await this.prisma.receivable.findFirst({
+        where: {
+          contractId: contract.id,
+          description: { contains: monthStr },
+          deletedAt: null,
+        },
+      });
+      if (exists) { skipped++; continue; }
+
+      const code = await this.generateCode();
+      const discount = Number(contract.discount);
+      const principal = Number(contract.monthlyValue);
+      const final = principal - discount;
+
+      await this.prisma.receivable.create({
+        data: {
+          code,
+          customerId: contract.customerId,
+          contractId: contract.id,
+          description: `Mensalidade ${monthStr}`,
+          type: ReceivableType.MONTHLY,
+          status: ReceivableStatus.PENDING,
+          principalAmount: principal,
+          discount,
+          finalAmount: final,
+          remainingAmount: final,
+          dueDate,
+          issueDate: new Date(),
+        },
+      });
+      created++;
+    }
+    return { created, skipped };
+  }
+}
