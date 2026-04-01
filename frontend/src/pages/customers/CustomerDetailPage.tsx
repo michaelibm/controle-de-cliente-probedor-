@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Edit, Phone, Mail, MapPin, Wifi, WifiOff,
-  DollarSign, FileText, ChevronRight, AlertTriangle, Plus, Zap,
+  DollarSign, FileText, ChevronRight, AlertTriangle, Plus, Zap, Trash2, X,
 } from 'lucide-react';
 import { customersService } from '../../services/customers.service';
 import type { CustomerStatus } from '../../types/api.types';
@@ -47,6 +47,7 @@ export function CustomerDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: customer, isLoading } = useQuery({
     queryKey: ['customer', id],
@@ -66,6 +67,14 @@ export function CustomerDetailPage() {
       qc.invalidateQueries({ queryKey: ['customer', id] });
       qc.invalidateQueries({ queryKey: ['customers'] });
       setShowStatusMenu(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => customersService.remove(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['customers'] });
+      navigate('/customers', { replace: true });
     },
   });
 
@@ -100,13 +109,23 @@ export function CustomerDetailPage() {
           <ArrowLeft size={18} />
         </button>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>Detalhe do Cliente</div>
-        <button onClick={() => navigate(`/customers/${id}/edit`)} style={{
-          width: 36, height: 36, borderRadius: 10, border: '1px solid var(--bd)',
-          background: 'var(--s2)', color: 'var(--t2)', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Edit size={16} />
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => navigate(`/customers/${id}/edit`)} style={{
+            width: 36, height: 36, borderRadius: 10, border: '1px solid var(--bd)',
+            background: 'var(--s2)', color: 'var(--t2)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Edit size={16} />
+          </button>
+          <button onClick={() => setShowDeleteConfirm(true)} style={{
+            width: 36, height: 36, borderRadius: 10,
+            border: '1px solid rgba(239,68,68,0.30)',
+            background: 'var(--danger-dim)', color: 'var(--danger)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '20px 20px 0' }}>
@@ -290,6 +309,92 @@ export function CustomerDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <>
+          <div
+            onClick={() => setShowDeleteConfirm(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', zIndex: 50 }}
+          />
+          <div className="slide-up" style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 51,
+            background: 'var(--s2)', border: '1px solid var(--bde)',
+            borderRadius: '20px 20px 0 0',
+            padding: '24px 20px calc(max(env(safe-area-inset-bottom), 16px) + 16px)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 12,
+                  background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.30)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Trash2 size={18} style={{ color: 'var(--danger)' }} />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>Excluir cliente</div>
+              </div>
+              <button onClick={() => setShowDeleteConfirm(false)} style={{
+                width: 32, height: 32, borderRadius: 8, background: 'var(--s3)',
+                border: '1px solid var(--bd)', color: 'var(--t2)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{
+              padding: '14px 16px', borderRadius: 12, marginBottom: 20,
+              background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.20)',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)', marginBottom: 6 }}>
+                {customer.name}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--t3)', lineHeight: 1.5 }}>
+                Esta ação irá excluir permanentemente o cliente e todo o histórico:
+                contratos, cobranças e instalações.{' '}
+                <strong style={{ color: 'var(--danger)' }}>Não pode ser desfeito.</strong>
+              </div>
+            </div>
+
+            {deleteMutation.isError && (
+              <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10,
+                background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.25)',
+                fontSize: 13, color: 'var(--danger)' }}>
+                Erro ao excluir. Tente novamente.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: 12,
+                  background: 'var(--s3)', border: '1px solid var(--bd)',
+                  color: 'var(--t2)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: 12,
+                  background: deleteMutation.isPending ? 'var(--s3)' : 'var(--danger)',
+                  border: 'none', color: '#fff', fontSize: 14, fontWeight: 700,
+                  cursor: deleteMutation.isPending ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {deleteMutation.isPending
+                  ? 'Excluindo...'
+                  : <><Trash2 size={16} /> Confirmar exclusão</>}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

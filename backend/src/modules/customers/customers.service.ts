@@ -170,11 +170,26 @@ export class CustomersService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.customer.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-      select: { id: true },
-    });
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.receivable.updateMany({
+        where: { customerId: id, deletedAt: null },
+        data: { deletedAt: now },
+      }),
+      this.prisma.contract.updateMany({
+        where: { customerId: id },
+        data: { status: 'CANCELLED' },
+      }),
+      this.prisma.installation.updateMany({
+        where: { customerId: id },
+        data: { status: 'CANCELLED' },
+      }),
+      this.prisma.customer.update({
+        where: { id },
+        data: { deletedAt: now },
+      }),
+    ]);
+    return { id };
   }
 
   async exportBackup() {
