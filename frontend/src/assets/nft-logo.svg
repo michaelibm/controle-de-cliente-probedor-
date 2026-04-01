@@ -1,10 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 54" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 56" fill="none">
+  <!-- NFT glow shadow -->
+  <text x="1" y="41"
+    font-family="'Arial Black','Impact','Helvetica Neue',sans-serif"
+    font-size="48" font-weight="900" font-style="italic"
+    fill="rgba(34,229,92,0.25)" letter-spacing="-1">NFT</text>
+  <!-- NFT main -->
   <text x="0" y="40"
     font-family="'Arial Black','Impact','Helvetica Neue',sans-serif"
-    font-size="46" font-weight="900" font-style="italic"
+    font-size="48" font-weight="900" font-style="italic"
     fill="#22E55C" letter-spacing="-1">NFT</text>
-  <text x="4" y="52"
+  <!-- TELECOM -->
+  <text x="4" y="54"
     font-family="'Arial','Helvetica Neue',sans-serif"
-    font-size="12" font-weight="700"
-    fill="#ffffff" letter-spacing="5.5">TELECOM</text>
+    font-size="12.5" font-weight="700"
+    fill="#F0F6FF" letter-spacing="6">TELECOM</text>
 </svg>

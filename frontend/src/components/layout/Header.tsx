@@ -11,7 +11,9 @@ export function Header() {
 
   return (
     <header style={{
-      height: 56, background: 'var(--s1)', borderBottom: '1px solid var(--bd)',
+      height: 56,
+      background: 'linear-gradient(90deg, var(--s2) 0%, var(--s1) 100%)',
+      borderBottom: '1px solid var(--bd)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '0 24px', flexShrink: 0,
     }}>

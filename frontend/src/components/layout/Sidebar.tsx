@@ -40,7 +40,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <aside
       style={{
         display: 'flex', flexDirection: 'column', height: '100vh',
-        background: 'var(--s1)', borderRight: '1px solid var(--bd)',
+        background: 'linear-gradient(180deg, var(--s2) 0%, var(--s1) 100%)',
+        borderRight: '1px solid var(--bd)',
         width: collapsed ? 64 : 240,
         transition: 'width 0.3s ease',
         position: 'relative', flexShrink: 0,
@@ -95,9 +96,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               padding: collapsed ? '10px 0' : '10px 12px',
               borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 500,
               transition: 'all 0.15s',
-              background: isActive ? 'rgba(34,229,92,0.12)' : 'transparent',
-              color: isActive ? 'var(--accent)' : 'var(--t3)',
+              background: isActive
+                ? 'linear-gradient(90deg, rgba(34,229,92,0.15) 0%, rgba(34,229,92,0.05) 100%)'
+                : 'transparent',
+              color: isActive ? 'var(--accent)' : 'var(--t2)',
               borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+              boxShadow: isActive ? 'inset 0 0 12px rgba(34,229,92,0.06)' : 'none',
             })}
           >
             <Icon size={18} style={{ flexShrink: 0 }} />

@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --base:    #080A0A;
-  --s1:      #0F1110;
-  --s2:      #161A17;
-  --s3:      #1D2320;
-  --sr:      #242C27;
-  --t1: #F0F5F1;
-  --t2: #8AA494;
-  --t3: #4A5E52;
-  --bd:  rgba(34,229,92,0.08);
-  --bde: rgba(34,229,92,0.15);
+  --base:    #111C2D;
+  --s1:      #172236;
+  --s2:      #1D2A40;
+  --s3:      #24334D;
+  --sr:      #2B3D5C;
+  --t1: #F0F6FF;
+  --t2: #8BA8CC;
+  --t3: #4E6A8A;
+  --bd:  rgba(100,160,255,0.10);
+  --bde: rgba(100,160,255,0.18);
   --accent:      #22E55C;
-  --accent-dim:  rgba(34,229,92,0.12);
-  --accent-glow: rgba(34,229,92,0.35);
+  --accent-dim:  rgba(34,229,92,0.13);
+  --accent-glow: rgba(34,229,92,0.40);
   --success:     #22C55E;
-  --success-dim: rgba(34,197,94,0.12);
+  --success-dim: rgba(34,197,94,0.13);
   --warn:        #F59E0B;
-  --warn-dim:    rgba(245,158,11,0.12);
+  --warn-dim:    rgba(245,158,11,0.13);
   --danger:      #EF4444;
-  --danger-dim:  rgba(239,68,68,0.12);
+  --danger-dim:  rgba(239,68,68,0.13);
   --info:        #06B6D4;
-  --info-dim:    rgba(6,182,212,0.12);
+  --info-dim:    rgba(6,182,212,0.13);
   --nav-h: 64px;
 }
 
@@ -39,7 +39,7 @@ body {
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(34,229,92,0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(34,229,92,0.20); border-radius: 4px; }
 
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
