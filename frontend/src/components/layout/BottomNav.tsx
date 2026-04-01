@@ -7,7 +7,6 @@ import {
 import { useAuthStore } from '../../store/auth.store';
 import { authService } from '../../services/auth.service';
 import { api } from '../../services/api';
-import nftLogo from '../../assets/nft-logo.svg';
 
 const tabs = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Início' },
@@ -95,7 +94,12 @@ export function BottomNav() {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 8px' }}>
-            <img src={nftLogo} alt="NFT Telecom" style={{ height: 28 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <img src="/pwa-icon.svg" alt="NFT" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', fontStyle: 'italic' }}>
+                <span style={{ color: 'var(--accent)' }}>NFT</span> TELECOM
+              </span>
+            </div>
             <button
               onClick={() => setMenuOpen(false)}
               style={{
@@ -193,8 +197,9 @@ export function BottomNav() {
         style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
           height: 'var(--nav-h)',
-          background: 'var(--s1)',
-          borderTop: '1px solid var(--bd)',
+          background: '#FFFFFF',
+          borderTop: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 -2px 12px rgba(0,0,0,0.07)',
           display: 'flex', alignItems: 'center',
           paddingBottom: 'env(safe-area-inset-bottom)',
           zIndex: 30,

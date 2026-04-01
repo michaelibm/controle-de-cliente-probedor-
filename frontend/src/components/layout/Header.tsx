@@ -11,11 +11,11 @@ export function Header() {
 
   return (
     <header style={{
-      height: 56,
-      background: 'linear-gradient(90deg, var(--s2) 0%, var(--s1) 100%)',
-      borderBottom: '1px solid var(--bd)',
+      height: 56, background: '#FFFFFF',
+      borderBottom: '1px solid rgba(0,0,0,0.07)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '0 24px', flexShrink: 0,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
     }}>
       {/* Search */}
       <div style={{
@@ -40,6 +40,7 @@ export function Header() {
           position: 'relative', padding: 8, borderRadius: 10,
           background: 'var(--s2)', border: '1px solid var(--bd)',
           color: 'var(--t2)', cursor: 'pointer', display: 'flex',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         }}>
           <Bell size={17} />
           <span style={{
@@ -56,14 +57,14 @@ export function Header() {
         }}>
           <div style={{
             width: 32, height: 32, borderRadius: '50%',
-            background: 'rgba(34,229,92,0.12)',
-            border: '1px solid rgba(34,229,92,0.25)',
+            background: 'rgba(24,194,74,0.12)',
+            border: '2px solid rgba(24,194,74,0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <User size={15} style={{ color: 'var(--accent)' }} />
           </div>
           <div style={{ fontSize: 13 }}>
-            <p style={{ fontWeight: 500, color: 'var(--t1)', lineHeight: 1.3 }}>{user?.name}</p>
+            <p style={{ fontWeight: 600, color: 'var(--t1)', lineHeight: 1.3 }}>{user?.name}</p>
             <p style={{ fontSize: 11, color: 'var(--t3)' }}>{ROLE_LABELS[user?.role ?? ''] ?? user?.role}</p>
           </div>
           <ChevronDown size={13} style={{ color: 'var(--t3)' }} />

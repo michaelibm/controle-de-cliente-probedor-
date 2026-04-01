@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --base:    #111C2D;
-  --s1:      #172236;
-  --s2:      #1D2A40;
-  --s3:      #24334D;
-  --sr:      #2B3D5C;
-  --t1: #F0F6FF;
-  --t2: #8BA8CC;
-  --t3: #4E6A8A;
-  --bd:  rgba(100,160,255,0.10);
-  --bde: rgba(100,160,255,0.18);
-  --accent:      #22E55C;
-  --accent-dim:  rgba(34,229,92,0.13);
-  --accent-glow: rgba(34,229,92,0.40);
-  --success:     #22C55E;
-  --success-dim: rgba(34,197,94,0.13);
-  --warn:        #F59E0B;
-  --warn-dim:    rgba(245,158,11,0.13);
-  --danger:      #EF4444;
-  --danger-dim:  rgba(239,68,68,0.13);
-  --info:        #06B6D4;
-  --info-dim:    rgba(6,182,212,0.13);
+  --base:    #E8EBF0;
+  --s1:      #FFFFFF;
+  --s2:      #F2F4F8;
+  --s3:      #E4E7EE;
+  --sr:      #D8DCE6;
+  --t1: #0E1825;
+  --t2: #4B5A70;
+  --t3: #96A3B5;
+  --bd:  rgba(0,0,0,0.07);
+  --bde: rgba(0,0,0,0.13);
+  --accent:      #18C24A;
+  --accent-dim:  rgba(24,194,74,0.12);
+  --accent-glow: rgba(24,194,74,0.30);
+  --success:     #16A34A;
+  --success-dim: rgba(22,163,74,0.12);
+  --warn:        #D97706;
+  --warn-dim:    rgba(217,119,6,0.12);
+  --danger:      #DC2626;
+  --danger-dim:  rgba(220,38,38,0.10);
+  --info:        #0891B2;
+  --info-dim:    rgba(8,145,178,0.12);
   --nav-h: 64px;
 }
 
@@ -39,7 +39,7 @@ body {
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(34,229,92,0.20); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
 
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
