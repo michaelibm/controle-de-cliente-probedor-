@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../store/auth.store';
+import nftLogo from '@/assets/nft-logo.png'
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -70,7 +71,7 @@ export function LoginPage() {
             boxShadow: '0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)',
             marginBottom: 16,
           }}>
-            <img src="/pwa-icon.svg" alt="NFT Telecom" style={{ width: 100, height: 100, display: 'block', borderRadius: '50%' }} />
+            <img src={nftLogo} alt="NFT Telecom" style={{ width: 100, height: 100, display: 'block', borderRadius: '50%' }} />
           </div>
           <p style={{ fontSize: 13, color: 'var(--t3)', letterSpacing: 0.4 }}>
             Sistema de Gestão de Provedor
