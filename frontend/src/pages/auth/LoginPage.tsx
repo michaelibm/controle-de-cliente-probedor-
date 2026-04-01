@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Loader2, Wifi } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../store/auth.store';
+import nftLogo from '../../assets/nft-logo.svg';
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -40,12 +41,17 @@ export function LoginPage() {
       alignItems: 'center', justifyContent: 'center',
       background: 'var(--base)', padding: 24,
     }}>
-      {/* Background grid lines — rede topology */}
+      {/* Grid background */}
       <div style={{
-        position: 'fixed', inset: 0, opacity: 0.03,
+        position: 'fixed', inset: 0, opacity: 0.04,
         backgroundImage: 'linear-gradient(var(--accent) 1px, transparent 1px), linear-gradient(90deg, var(--accent) 1px, transparent 1px)',
         backgroundSize: '40px 40px',
         pointerEvents: 'none',
+      }} />
+      {/* Glow radial */}
+      <div style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(34,229,92,0.06) 0%, transparent 70%)',
       }} />
 
       <div style={{ width: '100%', maxWidth: 380, position: 'relative' }}>
@@ -53,28 +59,25 @@ export function LoginPage() {
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 64, height: 64, borderRadius: 18,
-            background: 'var(--accent-dim)', border: '1px solid var(--accent)',
-            marginBottom: 16, position: 'relative',
+            padding: '12px 20px', borderRadius: 18,
+            background: 'rgba(34,229,92,0.07)',
+            border: '1px solid rgba(34,229,92,0.20)',
+            marginBottom: 14,
+            boxShadow: '0 0 40px rgba(34,229,92,0.12)',
           }}>
-            <div className="glow-accent" style={{
-              position: 'absolute', inset: -1, borderRadius: 18,
-              border: '1px solid var(--accent)', opacity: 0.4,
-            }} />
-            <Wifi size={28} style={{ color: 'var(--accent)' }} />
+            <img src={nftLogo} alt="NFT Telecom" style={{ height: 48, display: 'block' }} />
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--t1)', letterSpacing: -0.3 }}>
-            ISP Manager
-          </h1>
           <p style={{ fontSize: 13, color: 'var(--t3)', marginTop: 4 }}>
-            Gestão de Provedor de Internet
+            Sistema de Gestão de Provedor
           </p>
         </div>
 
         {/* Card */}
         <div style={{
-          background: 'var(--s1)', border: '1px solid var(--bde)',
+          background: 'var(--s1)',
+          border: '1px solid var(--bde)',
           borderRadius: 20, padding: 28,
+          boxShadow: '0 0 0 1px rgba(34,229,92,0.05), 0 24px 48px rgba(0,0,0,0.4)',
         }}>
           <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--t1)', marginBottom: 24 }}>
             Entrar na conta
@@ -151,14 +154,14 @@ export function LoginPage() {
               style={{
                 marginTop: 4, padding: '13px 0', borderRadius: 10,
                 background: isSubmitting ? 'var(--s3)' : 'var(--accent)',
-                border: 'none', color: '#fff', fontSize: 14, fontWeight: 600,
+                border: 'none', color: '#000', fontSize: 14, fontWeight: 700,
                 cursor: isSubmitting ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 transition: 'background 0.15s',
-                boxShadow: isSubmitting ? 'none' : '0 0 24px var(--accent-glow)',
+                boxShadow: isSubmitting ? 'none' : '0 0 28px var(--accent-glow)',
               }}
             >
-              {isSubmitting ? <><Loader2 size={16} className="animate-spin" /> Entrando...</> : 'Entrar'}
+              {isSubmitting ? <><Loader2 size={16} className="animate-spin" style={{ color: 'var(--t1)' }} /> Entrando...</> : 'Entrar'}
             </button>
           </form>
 
@@ -167,9 +170,8 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* Version */}
         <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--t3)', marginTop: 20 }}>
-          v1.0.0
+          NFT Telecom · v1.0.0
         </p>
       </div>
     </div>

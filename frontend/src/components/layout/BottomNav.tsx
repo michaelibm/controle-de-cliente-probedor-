@@ -7,6 +7,7 @@ import {
 import { useAuthStore } from '../../store/auth.store';
 import { authService } from '../../services/auth.service';
 import { api } from '../../services/api';
+import nftLogo from '../../assets/nft-logo.svg';
 
 const tabs = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Início' },
@@ -94,7 +95,7 @@ export function BottomNav() {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 8px' }}>
-            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--t1)' }}>Mais opções</span>
+            <img src={nftLogo} alt="NFT Telecom" style={{ height: 28 }} />
             <button
               onClick={() => setMenuOpen(false)}
               style={{
@@ -163,8 +164,8 @@ export function BottomNav() {
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '14px 16px', borderRadius: 12,
-                background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)',
-                color: '#3b82f6', fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                background: 'rgba(34,229,92,0.08)', border: '1px solid rgba(34,229,92,0.20)',
+                color: 'var(--accent)', fontSize: 14, fontWeight: 500, cursor: 'pointer',
                 opacity: backingUp ? 0.7 : 1,
               }}
             >

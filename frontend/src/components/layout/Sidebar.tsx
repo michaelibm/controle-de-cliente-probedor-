@@ -2,11 +2,12 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, FileText, Package, DollarSign,
   CreditCard, Bell, BarChart3, Settings, LogOut, ChevronLeft,
-  ChevronRight, Wifi,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../utils/formatters';
 import { useAuthStore } from '../../store/auth.store';
 import { authService } from '../../services/auth.service';
+import nftLogo from '../../assets/nft-logo.svg';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -37,72 +38,93 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
-      className={cn(
-        'flex flex-col h-screen bg-slate-900 text-white transition-all duration-300 relative',
-        collapsed ? 'w-16' : 'w-64',
-      )}
+      style={{
+        display: 'flex', flexDirection: 'column', height: '100vh',
+        background: 'var(--s1)', borderRight: '1px solid var(--bd)',
+        width: collapsed ? 64 : 240,
+        transition: 'width 0.3s ease',
+        position: 'relative', flexShrink: 0,
+      }}
     >
       {/* Logo */}
-      <div className={cn(
-        'flex items-center gap-3 px-4 py-5 border-b border-slate-700',
-        collapsed && 'justify-center px-2',
-      )}>
-        <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
-          <Wifi size={18} className="text-white" />
-        </div>
-        {!collapsed && (
-          <div>
-            <p className="font-bold text-sm text-white leading-tight">ISP Manager</p>
-            <p className="text-xs text-slate-400">Gestão de Provedor</p>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start',
+        gap: 10, padding: collapsed ? '20px 0' : '18px 20px',
+        borderBottom: '1px solid var(--bd)', minHeight: 68,
+      }}>
+        {collapsed ? (
+          <div style={{
+            width: 34, height: 34, borderRadius: 10,
+            background: 'rgba(34,229,92,0.1)',
+            border: '1px solid rgba(34,229,92,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 900, fontStyle: 'italic', color: 'var(--accent)' }}>N</span>
           </div>
+        ) : (
+          <img src={nftLogo} alt="NFT Telecom" style={{ height: 36, display: 'block' }} />
         )}
       </div>
 
       {/* Toggle */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-7 w-6 h-6 bg-slate-700 rounded-full flex items-center justify-center hover:bg-slate-600 transition-colors border border-slate-600 z-10"
+        style={{
+          position: 'absolute', right: -12, top: 22,
+          width: 24, height: 24, borderRadius: '50%',
+          background: 'var(--s2)', border: '1px solid var(--bd)',
+          color: 'var(--t3)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', zIndex: 10,
+        }}
       >
-        {collapsed
-          ? <ChevronRight size={12} className="text-slate-300" />
-          : <ChevronLeft size={12} className="text-slate-300" />
-        }
+        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 overflow-y-auto">
+      <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-all mb-0.5',
-                isActive
-                  ? 'bg-blue-600 text-white font-medium'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800',
-                collapsed && 'justify-center px-2',
-              )
-            }
             title={collapsed ? label : undefined}
+            style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center',
+              gap: collapsed ? 0 : 10,
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              padding: collapsed ? '10px 0' : '10px 12px',
+              borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 500,
+              transition: 'all 0.15s',
+              background: isActive ? 'rgba(34,229,92,0.12)' : 'transparent',
+              color: isActive ? 'var(--accent)' : 'var(--t3)',
+              borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+            })}
           >
-            <Icon size={18} className="shrink-0" />
+            <Icon size={18} style={{ flexShrink: 0 }} />
             {!collapsed && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>
 
       {/* Logout */}
-      <div className="border-t border-slate-700 p-3">
+      <div style={{ borderTop: '1px solid var(--bd)', padding: '10px 8px' }}>
         <button
           onClick={handleLogout}
-          className={cn(
-            'flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-all',
-            collapsed && 'justify-center px-2',
-          )}
           title={collapsed ? 'Sair' : undefined}
+          style={{
+            display: 'flex', alignItems: 'center',
+            gap: collapsed ? 0 : 10,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            padding: collapsed ? '10px 0' : '10px 12px',
+            width: '100%', borderRadius: 10,
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--t3)', fontSize: 13, fontWeight: 500,
+            transition: 'color 0.15s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--t3)')}
         >
-          <LogOut size={18} className="shrink-0" />
+          <LogOut size={18} style={{ flexShrink: 0 }} />
           {!collapsed && <span>Sair</span>}
         </button>
       </div>

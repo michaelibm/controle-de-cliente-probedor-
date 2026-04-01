@@ -20,13 +20,13 @@ const schema = z.object({
   whatsapp: z.string().optional(),
   notes: z.string().optional(),
   address: z.object({
-    zipCode: z.string().min(8, 'CEP inválido'),
-    street: z.string().min(3, 'Rua inválida'),
-    number: z.string().min(1, 'Número inválido'),
+    zipCode: z.string().optional().or(z.literal('')),
+    street: z.string().optional().or(z.literal('')),
+    number: z.string().optional().or(z.literal('')),
     complement: z.string().optional(),
-    neighborhood: z.string().min(2, 'Bairro inválido'),
-    city: z.string().min(2, 'Cidade inválida'),
-    state: z.string().length(2, 'UF inválida'),
+    neighborhood: z.string().optional().or(z.literal('')),
+    city: z.string().optional().or(z.literal('')),
+    state: z.string().optional().or(z.literal('')),
     reference: z.string().optional(),
   }).optional(),
 });
@@ -182,7 +182,11 @@ export function CustomerFormPage() {
 
   const onSubmit = (data: FormData) => {
     setServerError('');
-    mutation.mutate(data);
+    const payload = { ...data };
+    if (payload.address && !payload.address.zipCode && !payload.address.street) {
+      payload.address = undefined;
+    }
+    mutation.mutate(payload);
   };
 
   const isPending = mutation.isPending || installMutation.isPending;
