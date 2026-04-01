@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Search, X, ChevronRight, CheckCircle, Clock, DollarSign, ChevronDown, User,
+  Plus, Search, X, ChevronRight, CheckCircle, Clock, DollarSign, ChevronDown, User, CalendarDays,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { receivablesService } from '../../services/receivables.service';
@@ -186,6 +186,104 @@ function PayModal({ receivable, onClose, onSuccess }: {
   );
 }
 
+/* ---- DueDate Modal ---- */
+function DueDateModal({ receivable, onClose, onSuccess }: {
+  receivable: Receivable; onClose: () => void; onSuccess: () => void;
+}) {
+  const qc = useQueryClient();
+  const [newDate, setNewDate] = useState(receivable.dueDate.slice(0, 10));
+  const [error, setError] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => receivablesService.updateDueDate(receivable.id, newDate),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['receivables'] });
+      onSuccess();
+    },
+    onError: () => setError('Erro ao alterar vencimento. Tente novamente.'),
+  });
+
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(4px)', zIndex: 50,
+      }} />
+      <div className="slide-up" style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 51,
+        background: 'var(--s2)', border: '1px solid var(--bde)',
+        borderRadius: '20px 20px 0 0',
+        padding: '20px 20px calc(max(env(safe-area-inset-bottom), 16px) + 16px)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>Alterar Vencimento</div>
+            <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>{receivable.customer?.name}</div>
+          </div>
+          <button onClick={onClose} style={{
+            width: 32, height: 32, borderRadius: 8, background: 'var(--s3)',
+            border: '1px solid var(--bd)', color: 'var(--t2)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{
+          background: 'var(--s3)', border: '1px solid var(--bd)', borderRadius: 12,
+          padding: '12px 16px', marginBottom: 20,
+        }}>
+          <div style={{ fontSize: 12, color: 'var(--t3)' }}>{receivable.description}</div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>
+            Vencimento atual: <strong style={{ color: 'var(--warn)' }}>
+              {new Date(receivable.dueDate).toLocaleDateString('pt-BR')}
+            </strong>
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10,
+            background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.25)',
+            fontSize: 13, color: 'var(--danger)' }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--t2)', display: 'block', marginBottom: 6 }}>
+            Nova data de vencimento
+          </label>
+          <input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            style={{
+              width: '100%', padding: '12px 14px', borderRadius: 10,
+              background: 'var(--s1)', border: '1px solid var(--bd)',
+              color: 'var(--t1)', fontSize: 16, fontWeight: 600,
+            }}
+          />
+        </div>
+
+        <button
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending || !newDate}
+          style={{
+            width: '100%', padding: '14px', borderRadius: 12,
+            background: mutation.isPending ? 'var(--s3)' : 'var(--accent)',
+            border: 'none', color: '#000', fontSize: 15, fontWeight: 700,
+            cursor: mutation.isPending ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: mutation.isPending ? 'none' : '0 0 20px var(--accent-glow)',
+          }}
+        >
+          {mutation.isPending ? 'Salvando...' : <><CalendarDays size={17} /> Confirmar nova data</>}
+        </button>
+      </div>
+    </>
+  );
+}
+
 /* ---- Page ---- */
 export function ReceivablesPage() {
   const navigate = useNavigate();
@@ -194,6 +292,7 @@ export function ReceivablesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [paying, setPaying] = useState<Receivable | null>(null);
+  const [changingDueDate, setChangingDueDate] = useState<Receivable | null>(null);
   // Set of customer IDs that are collapsed
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -400,14 +499,24 @@ export function ReceivablesPage() {
                           </div>
 
                           {['PENDING', 'OVERDUE', 'PARTIAL'].includes(r.status) && (
-                            <button onClick={() => setPaying(r)} style={{
-                              marginTop: 10, width: '100%', padding: '9px', borderRadius: 9,
-                              background: 'var(--success-dim)', border: '1px solid rgba(34,197,94,0.25)',
-                              color: 'var(--success)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            }}>
-                              <CheckCircle size={14} /> Receber pagamento
-                            </button>
+                            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                              <button onClick={() => setPaying(r)} style={{
+                                flex: 1, padding: '9px', borderRadius: 9,
+                                background: 'var(--success-dim)', border: '1px solid rgba(34,197,94,0.25)',
+                                color: 'var(--success)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                              }}>
+                                <CheckCircle size={14} /> Receber
+                              </button>
+                              <button onClick={() => setChangingDueDate(r)} style={{
+                                flex: 1, padding: '9px', borderRadius: 9,
+                                background: 'var(--accent-dim)', border: '1px solid rgba(34,229,92,0.2)',
+                                color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                              }}>
+                                <CalendarDays size={14} /> Vencimento
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -457,6 +566,15 @@ export function ReceivablesPage() {
           receivable={paying}
           onClose={() => setPaying(null)}
           onSuccess={() => setPaying(null)}
+        />
+      )}
+
+      {/* DueDate modal */}
+      {changingDueDate && (
+        <DueDateModal
+          receivable={changingDueDate}
+          onClose={() => setChangingDueDate(null)}
+          onSuccess={() => setChangingDueDate(null)}
         />
       )}
     </div>
