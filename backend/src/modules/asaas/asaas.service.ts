@@ -87,7 +87,7 @@ export class AsaasService {
       headers: this.headers(),
       body: JSON.stringify({
         customer: data.asaasCustomerId,
-        billingType: 'BOLETO',
+        billingType: 'UNDEFINED', // permite boleto OU Pix — cliente escolhe
         value: data.value,
         dueDate: format(data.dueDate, 'yyyy-MM-dd'),
         description: data.description,
