@@ -67,6 +67,8 @@ model Customer {
   updatedAt      DateTime       @updatedAt @map("updated_at")
   deletedAt      DateTime?      @map("deleted_at")
 
+  asaasCustomerId String?  @map("asaas_customer_id")
+
   address     CustomerAddress?
   contracts   Contract[]
   receivables Receivable[]
@@ -234,6 +236,11 @@ model Receivable {
   notes                String?
   isExempt             Boolean          @default(false) @map("is_exempt")
   originalReceivableId String?          @map("original_receivable_id")
+  asaasId              String?          @unique @map("asaas_id")
+  paymentLink          String?          @map("payment_link")
+  boletoUrl            String?          @map("boleto_url")
+  pixQrCode            String?          @map("pix_qr_code")
+  pixCopiaECola        String?          @map("pix_copia_e_cola")
   createdAt            DateTime         @default(now()) @map("created_at")
   updatedAt            DateTime         @updatedAt @map("updated_at")
   deletedAt            DateTime?        @map("deleted_at")
@@ -383,6 +390,7 @@ enum NotificationType {
   DUE_TODAY
   DUE_TOMORROW
   DUE_IN_3_DAYS
+  DUE_IN_5_DAYS
   DUE_IN_7_DAYS
   OVERDUE
   HIGH_DEFAULT_RATE

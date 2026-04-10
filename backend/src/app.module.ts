@@ -16,6 +16,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
 import { PayablesModule } from './modules/payables/payables.module';
 import { FinancialModule } from './modules/financial/financial.module';
 import { InstallationsModule } from './modules/installations/installations.module';
+import { AsaasModule } from './modules/asaas/asaas.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -37,6 +38,7 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
     PayablesModule,
     FinancialModule,
     InstallationsModule,
+    AsaasModule,
     NotificationsModule,
   ],
   providers: [

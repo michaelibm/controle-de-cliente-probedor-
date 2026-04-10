@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WebhookService } from '../webhook/webhook.service';
 import { startOfDay, endOfDay, addDays, format } from 'date-fns';
@@ -19,10 +19,47 @@ export class NotificationsService {
   async runDailyNotifications() {
     this.logger.log('Iniciando verificação de vencimentos...');
     await Promise.all([
-      this.notifyDueToday(),
+      this.notifyDueIn5Days(),
       this.notifyDueIn3Days(),
+      this.notifyDueToday(),
     ]);
     this.logger.log('Verificação de vencimentos concluída.');
+  }
+
+  async notifyDueIn5Days() {
+    const target = addDays(new Date(), 5);
+    const receivables = await this.prisma.receivable.findMany({
+      where: {
+        dueDate: { gte: startOfDay(target), lte: endOfDay(target) },
+        status: { in: ['PENDING'] },
+        deletedAt: null,
+      },
+      include: { customer: true },
+    });
+
+    this.logger.log(`Vencendo em 5 dias: ${receivables.length} cobranças`);
+
+    for (const r of receivables) {
+      await this.webhook.sendNotification('receivable.due_in_5_days', {
+        tipo: 'AVISO_5_DIAS',
+        cobranca_id: r.id,
+        codigo: r.code,
+        descricao: r.description,
+        valor: Number(r.finalAmount).toFixed(2),
+        data_vencimento: format(new Date(r.dueDate), 'dd/MM/yyyy'),
+        link_pagamento: r.paymentLink ?? null,
+        boleto_url: r.boletoUrl ?? null,
+        pix_copia_e_cola: r.pixCopiaECola ?? null,
+        cliente: {
+          id: r.customer?.id,
+          nome: r.customer?.name,
+          telefone: r.customer?.phone,
+          whatsapp: r.customer?.whatsapp || r.customer?.phone,
+          documento: r.customer?.document,
+        },
+        mensagem: `Olá ${r.customer?.name}, sua fatura de R$ ${Number(r.finalAmount).toFixed(2)} vence em 5 dias (${format(new Date(r.dueDate), 'dd/MM/yyyy', { locale: ptBR })}). Pague via Pix ou boleto pelo link: ${r.paymentLink ?? 'em breve disponível'}.`,
+      });
+    }
   }
 
   async notifyDueToday() {
@@ -46,6 +83,9 @@ export class NotificationsService {
         descricao: r.description,
         valor: Number(r.finalAmount).toFixed(2),
         data_vencimento: format(new Date(r.dueDate), 'dd/MM/yyyy'),
+        link_pagamento: r.paymentLink ?? null,
+        boleto_url: r.boletoUrl ?? null,
+        pix_copia_e_cola: r.pixCopiaECola ?? null,
         cliente: {
           id: r.customer?.id,
           nome: r.customer?.name,
@@ -79,6 +119,9 @@ export class NotificationsService {
         descricao: r.description,
         valor: Number(r.finalAmount).toFixed(2),
         data_vencimento: format(new Date(r.dueDate), 'dd/MM/yyyy'),
+        link_pagamento: r.paymentLink ?? null,
+        boleto_url: r.boletoUrl ?? null,
+        pix_copia_e_cola: r.pixCopiaECola ?? null,
         cliente: {
           id: r.customer?.id,
           nome: r.customer?.name,

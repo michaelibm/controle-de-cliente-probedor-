@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WebhookService } from '../webhook/webhook.service';
+import { AsaasService } from '../asaas/asaas.service';
 import {
   CreateReceivableDto, PayReceivableDto, RenegotiateReceivableDto, FilterReceivableDto,
 } from './dto/create-receivable.dto';
@@ -14,7 +15,11 @@ import { startOfDay, endOfDay, addDays, addMonths, format } from 'date-fns';
 
 @Injectable()
 export class ReceivablesService {
-  constructor(private prisma: PrismaService, private webhook: WebhookService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhook: WebhookService,
+    private asaas: AsaasService,
+  ) {}
 
   private async generateCode(): Promise<string> {
     const year = new Date().getFullYear();
@@ -28,7 +33,7 @@ export class ReceivablesService {
     const code = await this.generateCode();
     const finalAmount = dto.principalAmount - (dto.discount ?? 0);
 
-    return this.prisma.receivable.create({
+    const receivable = await this.prisma.receivable.create({
       data: {
         code,
         customerId: dto.customerId,
@@ -44,10 +49,70 @@ export class ReceivablesService {
         notes: dto.notes,
       },
       include: {
+        customer: { select: { id: true, name: true, document: true, email: true, phone: true, whatsapp: true } },
+        contract: { select: { id: true, number: true } },
+      },
+    });
+
+    // Criar cobrança no Asaas (não bloqueia em caso de erro)
+    if (receivable.customer) {
+      await this.syncAsaas(receivable.id, receivable.customer, Number(finalAmount), new Date(dto.dueDate), dto.description);
+    }
+
+    return this.prisma.receivable.findFirst({
+      where: { id: receivable.id },
+      include: {
         customer: { select: { id: true, name: true } },
         contract: { select: { id: true, number: true } },
       },
     });
+  }
+
+  private async syncAsaas(
+    receivableId: string,
+    customer: { id: string; name: string; document: string; email?: string | null; phone?: string | null; whatsapp?: string | null },
+    value: number,
+    dueDate: Date,
+    description: string,
+  ): Promise<void> {
+    try {
+      const asaasCustomerId = await this.asaas.findOrCreateCustomer({
+        name: customer.name,
+        cpfCnpj: customer.document,
+        email: customer.email,
+        phone: customer.whatsapp || customer.phone,
+      });
+
+      // Salvar asaasCustomerId no cliente
+      await this.prisma.customer.update({
+        where: { id: customer.id },
+        data: { asaasCustomerId },
+      });
+
+      const charge = await this.asaas.createCharge({
+        asaasCustomerId,
+        value,
+        dueDate,
+        description,
+        externalReference: receivableId,
+      });
+
+      const pix = await this.asaas.getPixQrCode(charge.id);
+
+      await this.prisma.receivable.update({
+        where: { id: receivableId },
+        data: {
+          asaasId: charge.id,
+          paymentLink: charge.invoiceUrl,
+          boletoUrl: charge.bankSlipUrl,
+          pixQrCode: pix?.encodedImage ?? null,
+          pixCopiaECola: pix?.payload ?? null,
+        },
+      });
+    } catch (err: any) {
+      // Não propaga o erro — a cobrança local é preservada
+      console.warn(`[Asaas] Erro ao sincronizar cobrança ${receivableId}: ${err?.message}`);
+    }
   }
 
   async findAll(filters: FilterReceivableDto & { page?: number; limit?: number; orderBy?: string; order?: string } = {}) {
@@ -239,6 +304,12 @@ export class ReceivablesService {
     if (receivable.status === ReceivableStatus.PAID) {
       throw new BadRequestException('Cobrança paga não pode ser cancelada');
     }
+
+    // Cancelar no Asaas se existir
+    if (receivable.asaasId) {
+      void this.asaas.cancelCharge(receivable.asaasId);
+    }
+
     return this.prisma.receivable.update({
       where: { id },
       data: { status: ReceivableStatus.CANCELLED, notes: reason ?? receivable.notes },
@@ -251,10 +322,15 @@ export class ReceivablesService {
       throw new BadRequestException('Cobrança paga não pode ser renegociada');
     }
 
+    // Cancelar cobrança original no Asaas
+    if (original.asaasId) {
+      void this.asaas.cancelCharge(original.asaasId);
+    }
+
     const code = await this.generateCode();
     const newAmount = dto.newAmount - (dto.discount ?? 0);
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.receivable.update({
         where: { id },
         data: { status: ReceivableStatus.RENEGOTIATED, notes: dto.reason },
@@ -276,8 +352,24 @@ export class ReceivablesService {
           originalReceivableId: id,
           notes: dto.reason,
         },
+        include: {
+          customer: { select: { id: true, name: true, document: true, email: true, phone: true, whatsapp: true } },
+        },
       });
     });
+
+    // Criar nova cobrança no Asaas para a renegociação
+    if (result.customer) {
+      void this.syncAsaas(
+        result.id,
+        result.customer,
+        newAmount,
+        new Date(dto.newDueDate),
+        `Renegociação - ${original.description}`,
+      );
+    }
+
+    return result;
   }
 
   async updateDueDate(id: string, newDueDate: string) {
@@ -327,13 +419,14 @@ export class ReceivablesService {
       const discount = Number(contract.discount);
       const principal = Number(contract.monthlyValue);
       const final = principal - discount;
+      const description = `Mensalidade ${monthStr}`;
 
-      await this.prisma.receivable.create({
+      const receivable = await this.prisma.receivable.create({
         data: {
           code,
           customerId: contract.customerId,
           contractId: contract.id,
-          description: `Mensalidade ${monthStr}`,
+          description,
           type: ReceivableType.MONTHLY,
           status: ReceivableStatus.PENDING,
           principalAmount: principal,
@@ -343,7 +436,15 @@ export class ReceivablesService {
           dueDate,
           issueDate: new Date(),
         },
+        include: {
+          customer: { select: { id: true, name: true, document: true, email: true, phone: true, whatsapp: true } },
+        },
       });
+
+      if (receivable.customer) {
+        void this.syncAsaas(receivable.id, receivable.customer, final, dueDate, description);
+      }
+
       created++;
     }
     return { created };
@@ -365,7 +466,6 @@ export class ReceivablesService {
       const month = targetDate.getMonth();
       const monthStr = format(targetDate, 'MM/yyyy');
 
-      // Due date: same month, day = contract.dueDay
       const dueDate = new Date(year, month, contract.dueDay);
 
       const exists = await this.prisma.receivable.findFirst({
@@ -381,13 +481,14 @@ export class ReceivablesService {
       const discount = Number(contract.discount);
       const principal = Number(contract.monthlyValue);
       const final = principal - discount;
+      const description = `Mensalidade ${monthStr}`;
 
-      await this.prisma.receivable.create({
+      const receivable = await this.prisma.receivable.create({
         data: {
           code,
           customerId: contract.customerId,
           contractId: contract.id,
-          description: `Mensalidade ${monthStr}`,
+          description,
           type: ReceivableType.MONTHLY,
           status: ReceivableStatus.PENDING,
           principalAmount: principal,
@@ -397,7 +498,15 @@ export class ReceivablesService {
           dueDate,
           issueDate: new Date(),
         },
+        include: {
+          customer: { select: { id: true, name: true, document: true, email: true, phone: true, whatsapp: true } },
+        },
       });
+
+      if (receivable.customer) {
+        void this.syncAsaas(receivable.id, receivable.customer, final, dueDate, description);
+      }
+
       created++;
     }
     return { created, skipped };
