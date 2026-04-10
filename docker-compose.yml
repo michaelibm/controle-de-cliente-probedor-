@@ -43,6 +43,11 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:80}
       RUN_SEED: ${RUN_SEED:-true}
+      ASAAS_API_KEY: ${ASAAS_API_KEY}
+      ASAAS_BASE_URL: ${ASAAS_BASE_URL:-https://sandbox.asaas.com/api/v3}
+      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-isp-asaas-webhook-seguro-2024-xk9m}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      WEBHOOK_URL_NOTIFICATIONS: ${WEBHOOK_URL_NOTIFICATIONS}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     networks:
