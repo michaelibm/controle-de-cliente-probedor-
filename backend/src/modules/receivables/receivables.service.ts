@@ -380,6 +380,23 @@ export class ReceivablesService {
     });
   }
 
+  async remove(id: string) {
+    await this.findOne(id);
+    await this.prisma.receivable.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    return { deleted: 1 };
+  }
+
+  async removeMany(ids: string[]) {
+    const result = await this.prisma.receivable.updateMany({
+      where: { id: { in: ids }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return { deleted: result.count };
+  }
+
   async markOverdue() {
     const today = startOfDay(new Date());
     const result = await this.prisma.receivable.updateMany({

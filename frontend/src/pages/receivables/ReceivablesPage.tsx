@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Search, X, ChevronRight, CheckCircle, Clock, DollarSign, ChevronDown, User, CalendarDays,
+  Plus, Search, X, CheckCircle, DollarSign, ChevronDown, User, CalendarDays, Trash2, CheckSquare,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { receivablesService } from '../../services/receivables.service';
@@ -287,14 +287,54 @@ function DueDateModal({ receivable, onClose, onSuccess }: {
 /* ---- Page ---- */
 export function ReceivablesPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(searchParams.get('status') || '');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [paying, setPaying] = useState<Receivable | null>(null);
   const [changingDueDate, setChangingDueDate] = useState<Receivable | null>(null);
-  // Set of customer IDs that are collapsed
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => receivablesService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['receivables'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
+    },
+  });
+
+  const deleteManyMutation = useMutation({
+    mutationFn: (ids: string[]) => receivablesService.removeMany(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['receivables'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      setSelected(new Set());
+      setSelectMode(false);
+    },
+  });
+
+  const handleDeleteOne = (id: string) => {
+    if (!confirm('Excluir esta cobrança?')) return;
+    deleteMutation.mutate(id);
+  };
+
+  const handleDeleteSelected = () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Excluir ${selected.size} cobrança(s) selecionada(s)?`)) return;
+    deleteManyMutation.mutate(Array.from(selected));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['receivables', tab, search, page],
@@ -305,6 +345,16 @@ export function ReceivablesPage() {
     }),
     placeholderData: (prev) => prev,
   });
+
+  const allIds = useMemo(() => data?.items?.map((r) => r.id) ?? [], [data?.items]);
+
+  const toggleSelectAll = () => {
+    if (selected.size === allIds.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allIds));
+    }
+  };
 
   // Group receivables by customer
   const groups = useMemo(() => {
@@ -337,7 +387,48 @@ export function ReceivablesPage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1)' }}>Cobranças</h1>
-          <span style={{ fontSize: 13, color: 'var(--t3)' }}>{data?.total ?? 0} registros</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {selectMode ? (
+              <>
+                <button onClick={toggleSelectAll} style={{
+                  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: 'var(--s3)', border: '1px solid var(--bd)', color: 'var(--t2)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <CheckSquare size={13} />
+                  {selected.size === allIds.length ? 'Desmarcar' : 'Todos'}
+                </button>
+                {selected.size > 0 && (
+                  <button onClick={handleDeleteSelected} disabled={deleteManyMutation.isPending} style={{
+                    padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.3)',
+                    color: 'var(--danger)', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}>
+                    <Trash2 size={13} />
+                    Excluir {selected.size}
+                  </button>
+                )}
+                <button onClick={() => { setSelectMode(false); setSelected(new Set()); }} style={{
+                  padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: 'var(--s2)', border: '1px solid var(--bd)', color: 'var(--t3)', cursor: 'pointer',
+                }}>
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: 13, color: 'var(--t3)' }}>{data?.total ?? 0} registros</span>
+                <button onClick={() => setSelectMode(true)} style={{
+                  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: 'var(--s2)', border: '1px solid var(--bd)', color: 'var(--t2)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <CheckSquare size={13} /> Selecionar
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Busca */}
@@ -465,62 +556,93 @@ export function ReceivablesPage() {
                 {/* Receivables list */}
                 {!isCollapsed && (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {group.items.map((r, idx) => (
-                      <div key={r.id} style={{
-                        borderBottom: idx < group.items.length - 1 ? '1px solid var(--bd)' : 'none',
-                        borderLeft: `3px solid ${STATUS_COLOR[r.status]}`,
-                      }}>
-                        <div style={{ padding: '12px 16px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
-                                {r.description}
+                    {group.items.map((r, idx) => {
+                      const isSelected = selected.has(r.id);
+                      return (
+                        <div key={r.id} style={{
+                          borderBottom: idx < group.items.length - 1 ? '1px solid var(--bd)' : 'none',
+                          borderLeft: `3px solid ${selectMode && isSelected ? 'var(--accent)' : STATUS_COLOR[r.status]}`,
+                          background: selectMode && isSelected ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : undefined,
+                          cursor: selectMode ? 'pointer' : undefined,
+                        }} onClick={selectMode ? () => toggleSelect(r.id) : undefined}>
+                          <div style={{ padding: '12px 16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              {selectMode && (
+                                <div style={{
+                                  width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginRight: 10, marginTop: 1,
+                                  border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--bd)'}`,
+                                  background: isSelected ? 'var(--accent)' : 'transparent',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                  {isSelected && <CheckCircle size={12} style={{ color: '#000' }} />}
+                                </div>
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
+                                  {r.description}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>
+                                  Vence: {new Date(r.dueDate).toLocaleDateString('pt-BR')}
+                                  {r.paidDate && ` · Pago: ${new Date(r.paidDate).toLocaleDateString('pt-BR')}`}
+                                </div>
                               </div>
-                              <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>
-                                Vence: {new Date(r.dueDate).toLocaleDateString('pt-BR')}
-                                {r.paidDate && ` · Pago: ${new Date(r.paidDate).toLocaleDateString('pt-BR')}`}
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginLeft: 12, flexShrink: 0 }}>
+                                <div style={{ textAlign: 'right' }}>
+                                  <div className="mono" style={{
+                                    fontSize: 15, fontWeight: 700,
+                                    color: r.status === 'OVERDUE' ? 'var(--danger)' : 'var(--t1)',
+                                  }}>
+                                    {Number(r.remainingAmount || r.finalAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                  </div>
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20,
+                                    background: `color-mix(in srgb, ${STATUS_COLOR[r.status]} 12%, transparent)`,
+                                    color: STATUS_COLOR[r.status],
+                                  }}>
+                                    {STATUS_LABEL[r.status]}
+                                  </span>
+                                </div>
+                                {!selectMode && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteOne(r.id); }}
+                                    disabled={deleteMutation.isPending}
+                                    style={{
+                                      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                                      background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.25)',
+                                      color: 'var(--danger)', cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
                               </div>
                             </div>
-                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                              <div className="mono" style={{
-                                fontSize: 15, fontWeight: 700,
-                                color: r.status === 'OVERDUE' ? 'var(--danger)' : 'var(--t1)',
-                              }}>
-                                {Number(r.remainingAmount || r.finalAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                              </div>
-                              <span style={{
-                                fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20,
-                                background: `color-mix(in srgb, ${STATUS_COLOR[r.status]} 12%, transparent)`,
-                                color: STATUS_COLOR[r.status],
-                              }}>
-                                {STATUS_LABEL[r.status]}
-                              </span>
-                            </div>
-                          </div>
 
-                          {['PENDING', 'OVERDUE', 'PARTIAL'].includes(r.status) && (
-                            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                              <button onClick={() => setPaying(r)} style={{
-                                flex: 1, padding: '9px', borderRadius: 9,
-                                background: 'var(--success-dim)', border: '1px solid rgba(34,197,94,0.25)',
-                                color: 'var(--success)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                              }}>
-                                <CheckCircle size={14} /> Receber
-                              </button>
-                              <button onClick={() => setChangingDueDate(r)} style={{
-                                flex: 1, padding: '9px', borderRadius: 9,
-                                background: 'var(--accent-dim)', border: '1px solid rgba(34,229,92,0.2)',
-                                color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                              }}>
-                                <CalendarDays size={14} /> Vencimento
-                              </button>
-                            </div>
-                          )}
+                            {!selectMode && ['PENDING', 'OVERDUE', 'PARTIAL'].includes(r.status) && (
+                              <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                                <button onClick={() => setPaying(r)} style={{
+                                  flex: 1, padding: '9px', borderRadius: 9,
+                                  background: 'var(--success-dim)', border: '1px solid rgba(34,197,94,0.25)',
+                                  color: 'var(--success)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                }}>
+                                  <CheckCircle size={14} /> Receber
+                                </button>
+                                <button onClick={() => setChangingDueDate(r)} style={{
+                                  flex: 1, padding: '9px', borderRadius: 9,
+                                  background: 'var(--accent-dim)', border: '1px solid rgba(34,229,92,0.2)',
+                                  color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                }}>
+                                  <CalendarDays size={14} /> Vencimento
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

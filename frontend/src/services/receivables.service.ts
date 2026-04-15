@@ -50,4 +50,14 @@ export const receivablesService = {
     const { data } = await api.post(`/receivables/generate-annual/${contractId}`);
     return data;
   },
+
+  async remove(id: string): Promise<{ deleted: number }> {
+    const { data } = await api.delete(`/receivables/${id}`);
+    return data;
+  },
+
+  async removeMany(ids: string[]): Promise<{ deleted: number }> {
+    const { data } = await api.delete('/receivables/bulk', { data: { ids } });
+    return data;
+  },
 };

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Query, HttpCode, HttpStatus,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -113,5 +113,21 @@ export class ReceivablesController {
   @ApiOperation({ summary: 'Alterar vencimento' })
   updateDueDate(@Param('id') id: string, @Body('newDueDate') newDueDate: string) {
     return this.receivablesService.updateDueDate(id, newDueDate);
+  }
+
+  @Delete('bulk')
+  @Roles(UserRole.ADMIN, UserRole.FINANCIAL)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Excluir múltiplas cobranças (soft delete)' })
+  removeMany(@Body('ids') ids: string[]) {
+    return this.receivablesService.removeMany(ids);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.FINANCIAL)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Excluir cobrança (soft delete)' })
+  remove(@Param('id') id: string) {
+    return this.receivablesService.remove(id);
   }
 }
