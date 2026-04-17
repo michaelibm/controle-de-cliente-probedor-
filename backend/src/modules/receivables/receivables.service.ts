@@ -111,7 +111,7 @@ export class ReceivablesService {
       });
     } catch (err: any) {
       // Não propaga o erro — a cobrança local é preservada
-      console.warn(`[Asaas] Erro ao sincronizar cobrança ${receivableId}: ${err?.message}`);
+      console.error(`[Asaas] Erro ao sincronizar cobrança ${receivableId}: ${err?.message}`);
     }
   }
 

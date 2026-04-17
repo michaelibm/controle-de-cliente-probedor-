@@ -42,17 +42,26 @@ export class AsaasService {
     email?: string | null;
     phone?: string | null;
   }): Promise<string> {
+    if (!data.cpfCnpj) {
+      throw new Error(`Cliente "${data.name}" não possui CPF/CNPJ cadastrado`);
+    }
+
     const cpfCnpj = data.cpfCnpj.replace(/\D/g, '');
+    if (cpfCnpj.length < 11) {
+      throw new Error(`CPF/CNPJ inválido para "${data.name}": "${cpfCnpj}"`);
+    }
 
     try {
       const searchResp = await fetch(
         `${this.baseUrl}/customers?cpfCnpj=${cpfCnpj}`,
         { headers: this.headers(), signal: AbortSignal.timeout(10000) },
       );
-      const searchData = await searchResp.json() as any;
-      if (searchData.data?.length > 0) {
-        this.logger.log(`Asaas: cliente existente ${searchData.data[0].id} para ${data.name}`);
-        return searchData.data[0].id as string;
+      if (searchResp.ok) {
+        const searchData = await searchResp.json() as any;
+        if (searchData.data?.length > 0) {
+          this.logger.log(`Asaas: cliente existente ${searchData.data[0].id} para ${data.name}`);
+          return searchData.data[0].id as string;
+        }
       }
     } catch (err: any) {
       this.logger.warn(`Asaas: erro ao buscar cliente: ${err?.message}`);
@@ -70,7 +79,14 @@ export class AsaasService {
       }),
       signal: AbortSignal.timeout(10000),
     });
+
     const customer = await createResp.json() as any;
+    if (!createResp.ok || !customer.id) {
+      throw new Error(
+        `Asaas: falha ao criar cliente "${data.name}" — HTTP ${createResp.status}: ${JSON.stringify(customer?.errors ?? customer)}`,
+      );
+    }
+
     this.logger.log(`Asaas: cliente criado ${customer.id} para ${data.name}`);
     return customer.id as string;
   }
@@ -96,9 +112,16 @@ export class AsaasService {
       }),
       signal: AbortSignal.timeout(15000),
     });
-    const charge = await resp.json() as AsaasCharge;
+
+    const charge = await resp.json() as any;
+    if (!resp.ok || !charge.id) {
+      throw new Error(
+        `Asaas: falha ao criar cobrança — HTTP ${resp.status}: ${JSON.stringify(charge?.errors ?? charge)}`,
+      );
+    }
+
     this.logger.log(`Asaas: cobrança criada ${charge.id} (R$ ${data.value})`);
-    return charge;
+    return charge as AsaasCharge;
   }
 
   async getPixQrCode(paymentId: string): Promise<AsaasPixQrCode | null> {
