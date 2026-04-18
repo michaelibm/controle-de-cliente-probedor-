@@ -51,6 +51,11 @@ export const receivablesService = {
     return data;
   },
 
+  async syncWithAsaas(): Promise<{ synced: number; errors: number }> {
+    const { data } = await api.post('/receivables/sync');
+    return data;
+  },
+
   async remove(id: string): Promise<{ deleted: number }> {
     const { data } = await api.delete(`/receivables/${id}`);
     return data;

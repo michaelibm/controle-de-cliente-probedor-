@@ -44,7 +44,7 @@ export function ContractFormPage() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     defaultValues: {
-      dueDay: 10,
+      dueDay: 7,
       discount: 0,
       fidelityMonths: 12,
       finePercent: 2,
@@ -300,8 +300,8 @@ export function ContractFormPage() {
                 <div>
                   <label style={labelStyle}>Dia de vencimento *</label>
                   <select {...register('dueDay', { required: true })} style={inputStyle}>
-                    {[1,5,10,15,20,25,28].map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                    {[7, 20, 30].map((d) => (
+                      <option key={d} value={d}>Dia {d}</option>
                     ))}
                   </select>
                 </div>

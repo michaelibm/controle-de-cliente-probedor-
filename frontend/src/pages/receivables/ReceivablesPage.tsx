@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Search, X, CheckCircle, DollarSign, ChevronDown, User, CalendarDays, Trash2, CheckSquare,
+  Plus, Search, X, CheckCircle, DollarSign, ChevronDown, User, CalendarDays, Trash2, CheckSquare, RefreshCw,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { receivablesService } from '../../services/receivables.service';
@@ -297,6 +297,24 @@ export function ReceivablesPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const syncMutation = useMutation({
+    mutationFn: () => receivablesService.syncWithAsaas(),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['receivables'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      showToast(result.synced > 0
+        ? `${result.synced} pagamento(s) baixado(s) com sucesso!`
+        : 'Nenhum novo pagamento encontrado.');
+    },
+    onError: () => showToast('Erro ao sincronizar pagamentos.'),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => receivablesService.remove(id),
@@ -419,6 +437,14 @@ export function ReceivablesPage() {
             ) : (
               <>
                 <span style={{ fontSize: 13, color: 'var(--t3)' }}>{data?.total ?? 0} registros</span>
+                <button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} style={{
+                  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: 'var(--s2)', border: '1px solid var(--bd)', color: 'var(--t2)', cursor: syncMutation.isPending ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5, opacity: syncMutation.isPending ? 0.6 : 1,
+                }}>
+                  <RefreshCw size={13} style={{ animation: syncMutation.isPending ? 'spin 1s linear infinite' : 'none' }} />
+                  {syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}
+                </button>
                 <button onClick={() => setSelectMode(true)} style={{
                   padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                   background: 'var(--s2)', border: '1px solid var(--bd)', color: 'var(--t2)', cursor: 'pointer',
@@ -668,6 +694,23 @@ export function ReceivablesPage() {
               cursor: page === data.totalPages ? 'default' : 'pointer' }}>
             Próxima
           </button>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 'calc(var(--nav-h) + 80px)', left: '50%',
+          transform: 'translateX(-50%)', zIndex: 100,
+          background: 'var(--s2)', border: '1px solid var(--bd)',
+          borderRadius: 12, padding: '12px 20px',
+          fontSize: 13, fontWeight: 600, color: 'var(--t1)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          whiteSpace: 'nowrap',
+        }}>
+          <RefreshCw size={14} style={{ color: 'var(--accent)' }} />
+          {toast}
         </div>
       )}
 

@@ -137,6 +137,25 @@ export class AsaasService {
     }
   }
 
+  async getPaymentStatus(paymentId: string): Promise<{ status: string; value: number; billingType: string; paymentDate?: string } | null> {
+    try {
+      const resp = await fetch(`${this.baseUrl}/payments/${paymentId}`, {
+        headers: this.headers(),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json() as any;
+      return {
+        status: data.status,
+        value: data.value,
+        billingType: data.billingType,
+        paymentDate: data.paymentDate ?? data.clientPaymentDate,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async cancelCharge(paymentId: string): Promise<void> {
     try {
       await fetch(`${this.baseUrl}/payments/${paymentId}`, {

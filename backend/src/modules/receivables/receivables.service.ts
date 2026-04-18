@@ -380,6 +380,82 @@ export class ReceivablesService {
     });
   }
 
+  async syncWithAsaas(): Promise<{ synced: number; errors: number }> {
+    const receivables = await this.prisma.receivable.findMany({
+      where: {
+        deletedAt: null,
+        asaasId: { not: null },
+        status: { in: [ReceivableStatus.PENDING, ReceivableStatus.OVERDUE, ReceivableStatus.PARTIAL] },
+      },
+      include: { customer: { select: { id: true } } },
+    });
+
+    let synced = 0;
+    let errors = 0;
+
+    for (const receivable of receivables) {
+      try {
+        const payment = await this.asaas.getPaymentStatus(receivable.asaasId!);
+        if (!payment) continue;
+
+        const isConfirmed = ['RECEIVED', 'CONFIRMED'].includes(payment.status);
+        if (!isConfirmed) continue;
+
+        const paidValue = Number(payment.value ?? receivable.finalAmount);
+        const paidAt = payment.paymentDate ? new Date(payment.paymentDate) : new Date();
+
+        const paymentMethodMap: Record<string, any> = {
+          PIX: 'PIX', BOLETO: 'BOLETO', CREDIT_CARD: 'CREDIT_CARD',
+          DEBIT_CARD: 'DEBIT_CARD', TRANSFER: 'TRANSFER',
+        };
+        const paymentMethod = paymentMethodMap[payment.billingType] ?? 'BOLETO';
+
+        const systemUser = await this.prisma.user.findFirst({
+          where: { role: 'ADMIN', isActive: true },
+          select: { id: true },
+        });
+
+        await this.prisma.$transaction(async (tx) => {
+          if (systemUser) {
+            const alreadyRegistered = await tx.receivablePayment.findFirst({
+              where: { receivableId: receivable.id, notes: { contains: 'Asaas sync' } },
+            });
+            if (!alreadyRegistered) {
+              await tx.receivablePayment.create({
+                data: {
+                  receivableId: receivable.id,
+                  amount: paidValue,
+                  paymentMethod,
+                  paidAt,
+                  notes: `Asaas sync automático (${payment.billingType ?? 'BOLETO'})`,
+                  registeredBy: systemUser.id,
+                },
+              });
+            }
+          }
+          await tx.receivable.update({
+            where: { id: receivable.id },
+            data: {
+              paidAmount: paidValue,
+              remainingAmount: 0,
+              status: ReceivableStatus.PAID,
+              paidDate: paidAt,
+              paymentMethod,
+            },
+          });
+        });
+
+        synced++;
+      } catch (err: any) {
+        console.error(`[Asaas Sync] Erro ao sincronizar ${receivable.asaasId}: ${err?.message}`);
+        errors++;
+      }
+    }
+
+    console.log(`[Asaas Sync] Concluído: ${synced} sincronizados, ${errors} erros`);
+    return { synced, errors };
+  }
+
   async remove(id: string) {
     await this.findOne(id);
     await this.prisma.receivable.update({

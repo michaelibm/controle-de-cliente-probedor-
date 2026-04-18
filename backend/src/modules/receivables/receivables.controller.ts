@@ -115,6 +115,14 @@ export class ReceivablesController {
     return this.receivablesService.updateDueDate(id, newDueDate);
   }
 
+  @Post('sync')
+  @Roles(UserRole.ADMIN, UserRole.FINANCIAL)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sincronizar pagamentos pendentes com o Asaas' })
+  syncWithAsaas() {
+    return this.receivablesService.syncWithAsaas();
+  }
+
   @Delete('bulk')
   @Roles(UserRole.ADMIN, UserRole.FINANCIAL)
   @HttpCode(HttpStatus.OK)
