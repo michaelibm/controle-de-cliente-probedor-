@@ -16,8 +16,8 @@ export class CreateContractDto {
   @ApiProperty({ example: 109.90 })
   @Type(() => Number) @IsNumber() @Min(0) monthlyValue: number;
 
-  @ApiProperty({ example: 10, description: 'Dia de vencimento (1-28)' })
-  @Type(() => Number) @IsNumber() @Min(1) @Max(28) dueDay: number;
+  @ApiProperty({ example: 7, description: 'Dia de vencimento (7, 20 ou 30)' })
+  @Type(() => Number) @IsNumber() @Min(1) @Max(30) dueDay: number;
 
   @ApiPropertyOptional({ example: 0 })
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) discount?: number;
