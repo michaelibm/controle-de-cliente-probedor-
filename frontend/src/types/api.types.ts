@@ -122,6 +122,10 @@ export interface Receivable {
   paidDate?: string;
   paymentMethod?: PaymentMethod;
   notes?: string;
+  asaasId?: string;
+  paymentLink?: string;
+  pixQrCode?: string;
+  pixCopiaECola?: string;
   createdAt: string;
 }
 

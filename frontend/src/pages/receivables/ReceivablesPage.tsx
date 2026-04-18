@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Search, X, CheckCircle, DollarSign, ChevronDown, User, CalendarDays, Trash2, CheckSquare, RefreshCw,
+  Plus, Search, X, CheckCircle, DollarSign, ChevronDown, User, CalendarDays, Trash2, CheckSquare, RefreshCw, Pencil,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { receivablesService } from '../../services/receivables.service';
@@ -284,6 +284,131 @@ function DueDateModal({ receivable, onClose, onSuccess }: {
   );
 }
 
+/* ---- Edit Modal ---- */
+type EditForm = { description: string; principalAmount: string; discount: string; dueDate: string };
+
+function EditModal({ receivable, onClose, onSuccess }: {
+  receivable: Receivable; onClose: () => void; onSuccess: () => void;
+}) {
+  const qc = useQueryClient();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<EditForm>({
+    defaultValues: {
+      description: receivable.description,
+      principalAmount: String(receivable.principalAmount),
+      discount: String(receivable.discount ?? 0),
+      dueDate: receivable.dueDate.slice(0, 10),
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data: EditForm) => receivablesService.update(receivable.id, {
+      description: data.description,
+      principalAmount: Number(data.principalAmount),
+      discount: Number(data.discount),
+      dueDate: data.dueDate,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['receivables'] });
+      onSuccess();
+    },
+  });
+
+  const onSubmit = (data: EditForm) => mutation.mutateAsync(data).catch(() => {});
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 50 }} />
+      <div className="slide-up" style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 51,
+        background: 'var(--s2)', border: '1px solid var(--bde)',
+        borderRadius: '20px 20px 0 0',
+        padding: '20px 20px calc(max(env(safe-area-inset-bottom), 16px) + 16px)',
+        maxHeight: '90vh', overflowY: 'auto',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>Editar Cobrança</div>
+            <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>{receivable.customer?.name}</div>
+          </div>
+          <button onClick={onClose} style={{
+            width: 32, height: 32, borderRadius: 8, background: 'var(--s3)',
+            border: '1px solid var(--bd)', color: 'var(--t2)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {mutation.isError && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10,
+            background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.25)',
+            fontSize: 13, color: 'var(--danger)' }}>
+            Erro ao salvar. Tente novamente.
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--t2)', display: 'block', marginBottom: 6 }}>Descrição</label>
+            <input {...register('description', { required: true })} style={{
+              width: '100%', padding: '12px 14px', borderRadius: 10,
+              background: 'var(--s1)', border: `1px solid ${errors.description ? 'var(--danger)' : 'var(--bd)'}`,
+              color: 'var(--t1)', fontSize: 14,
+            }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--t2)', display: 'block', marginBottom: 6 }}>Valor (R$)</label>
+              <input {...register('principalAmount', { required: true, min: 0.01 })} type="number" step="0.01" style={{
+                width: '100%', padding: '12px 14px', borderRadius: 10,
+                background: 'var(--s1)', border: `1px solid ${errors.principalAmount ? 'var(--danger)' : 'var(--bd)'}`,
+                color: 'var(--t1)', fontSize: 14,
+              }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--t2)', display: 'block', marginBottom: 6 }}>Desconto (R$)</label>
+              <input {...register('discount')} type="number" step="0.01" min="0" style={{
+                width: '100%', padding: '12px 14px', borderRadius: 10,
+                background: 'var(--s1)', border: '1px solid var(--bd)',
+                color: 'var(--t1)', fontSize: 14,
+              }} />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--t2)', display: 'block', marginBottom: 6 }}>Data de vencimento</label>
+            <input {...register('dueDate', { required: true })} type="date" style={{
+              width: '100%', padding: '12px 14px', borderRadius: 10,
+              background: 'var(--s1)', border: '1px solid var(--bd)',
+              color: 'var(--t1)', fontSize: 14,
+            }} />
+          </div>
+
+          {receivable.asaasId && (
+            <div style={{ padding: '10px 14px', borderRadius: 10,
+              background: 'var(--accent-dim)', border: '1px solid rgba(34,229,92,0.2)',
+              fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Pencil size={12} /> As alterações serão sincronizadas automaticamente com o Asaas.
+            </div>
+          )}
+
+          <button type="submit" disabled={isSubmitting} style={{
+            marginTop: 4, padding: '14px', borderRadius: 12,
+            background: isSubmitting ? 'var(--s3)' : 'var(--accent)',
+            border: 'none', color: '#000', fontSize: 15, fontWeight: 700,
+            cursor: isSubmitting ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: isSubmitting ? 'none' : '0 0 20px var(--accent-glow)',
+          }}>
+            {isSubmitting ? 'Salvando...' : <><Pencil size={16} /> Salvar alterações</>}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+}
+
 /* ---- Page ---- */
 export function ReceivablesPage() {
   const navigate = useNavigate();
@@ -294,6 +419,7 @@ export function ReceivablesPage() {
   const [page, setPage] = useState(1);
   const [paying, setPaying] = useState<Receivable | null>(null);
   const [changingDueDate, setChangingDueDate] = useState<Receivable | null>(null);
+  const [editing, setEditing] = useState<Receivable | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -629,18 +755,31 @@ export function ReceivablesPage() {
                                   </span>
                                 </div>
                                 {!selectMode && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteOne(r.id); }}
-                                    disabled={deleteMutation.isPending}
-                                    style={{
-                                      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-                                      background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.25)',
-                                      color: 'var(--danger)', cursor: 'pointer',
-                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setEditing(r); }}
+                                      style={{
+                                        width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                                        background: 'var(--accent-dim)', border: '1px solid rgba(34,229,92,0.2)',
+                                        color: 'var(--accent)', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      }}
+                                    >
+                                      <Pencil size={13} />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteOne(r.id); }}
+                                      disabled={deleteMutation.isPending}
+                                      style={{
+                                        width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                                        background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.25)',
+                                        color: 'var(--danger)', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      }}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -740,6 +879,15 @@ export function ReceivablesPage() {
           receivable={changingDueDate}
           onClose={() => setChangingDueDate(null)}
           onSuccess={() => setChangingDueDate(null)}
+        />
+      )}
+
+      {/* Edit modal */}
+      {editing && (
+        <EditModal
+          receivable={editing}
+          onClose={() => setEditing(null)}
+          onSuccess={() => setEditing(null)}
         />
       )}
     </div>

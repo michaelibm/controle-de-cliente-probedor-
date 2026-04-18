@@ -83,6 +83,16 @@ export class ReceivablesController {
     return this.receivablesService.findOne(id);
   }
 
+  @Patch(':id')
+  @Roles(UserRole.FINANCIAL)
+  @ApiOperation({ summary: 'Editar cobrança (valor, vencimento, descrição) — sincroniza com Asaas' })
+  update(
+    @Param('id') id: string,
+    @Body() body: { description?: string; principalAmount?: number; discount?: number; dueDate?: string },
+  ) {
+    return this.receivablesService.update(id, body);
+  }
+
   @Patch(':id/pay')
   @Roles(UserRole.FINANCIAL)
   @ApiOperation({ summary: 'Dar baixa na cobrança' })

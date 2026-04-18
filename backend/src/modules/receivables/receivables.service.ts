@@ -380,6 +380,44 @@ export class ReceivablesService {
     });
   }
 
+  async update(id: string, dto: { description?: string; principalAmount?: number; discount?: number; dueDate?: string }) {
+    const receivable = await this.findOne(id);
+
+    const nonEditable: ReceivableStatus[] = [ReceivableStatus.PAID, ReceivableStatus.CANCELLED, ReceivableStatus.RENEGOTIATED];
+    if (nonEditable.includes(receivable.status)) {
+      throw new BadRequestException('Cobrança com este status não pode ser editada');
+    }
+
+    const principal = dto.principalAmount !== undefined ? dto.principalAmount : Number(receivable.principalAmount);
+    const discount = dto.discount !== undefined ? dto.discount : Number(receivable.discount);
+    const finalAmount = principal - discount;
+    const dueDate = dto.dueDate ? new Date(dto.dueDate) : undefined;
+
+    const updated = await this.prisma.receivable.update({
+      where: { id },
+      data: {
+        ...(dto.description && { description: dto.description }),
+        ...(dto.principalAmount !== undefined && { principalAmount: principal }),
+        ...(dto.discount !== undefined && { discount }),
+        ...(dto.principalAmount !== undefined || dto.discount !== undefined
+          ? { finalAmount, remainingAmount: finalAmount }
+          : {}),
+        ...(dueDate && { dueDate }),
+      },
+      include: { customer: { select: { id: true, name: true } } },
+    });
+
+    if (receivable.asaasId) {
+      void this.asaas.updatePayment(receivable.asaasId, {
+        ...(dto.principalAmount !== undefined || dto.discount !== undefined ? { value: finalAmount } : {}),
+        ...(dueDate ? { dueDate } : {}),
+        ...(dto.description ? { description: dto.description } : {}),
+      }).catch((err) => console.error(`[Asaas] Erro ao atualizar cobrança: ${err?.message}`));
+    }
+
+    return updated;
+  }
+
   async syncWithAsaas(): Promise<{ synced: number; errors: number }> {
     const receivables = await this.prisma.receivable.findMany({
       where: {

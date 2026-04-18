@@ -137,6 +137,26 @@ export class AsaasService {
     }
   }
 
+  async updatePayment(paymentId: string, data: { value?: number; dueDate?: Date; description?: string }): Promise<void> {
+    const body: Record<string, any> = {};
+    if (data.value !== undefined) body.value = data.value;
+    if (data.dueDate) body.dueDate = format(data.dueDate, 'yyyy-MM-dd');
+    if (data.description) body.description = data.description;
+
+    const resp = await fetch(`${this.baseUrl}/payments/${paymentId}`, {
+      method: 'PUT',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json() as any;
+      throw new Error(`Asaas: falha ao atualizar cobrança ${paymentId} — HTTP ${resp.status}: ${JSON.stringify(err?.errors ?? err)}`);
+    }
+    this.logger.log(`Asaas: cobrança ${paymentId} atualizada`);
+  }
+
   async getPaymentStatus(paymentId: string): Promise<{ status: string; value: number; billingType: string; paymentDate?: string } | null> {
     try {
       const resp = await fetch(`${this.baseUrl}/payments/${paymentId}`, {

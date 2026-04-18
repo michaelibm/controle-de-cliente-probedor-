@@ -51,6 +51,11 @@ export const receivablesService = {
     return data;
   },
 
+  async update(id: string, payload: { description?: string; principalAmount?: number; discount?: number; dueDate?: string }): Promise<Receivable> {
+    const { data } = await api.patch(`/receivables/${id}`, payload);
+    return data;
+  },
+
   async syncWithAsaas(): Promise<{ synced: number; errors: number }> {
     const { data } = await api.post('/receivables/sync');
     return data;
